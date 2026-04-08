@@ -37,8 +37,10 @@ body {
 }
 
 .main-title {
-    margin-bottom: 1rem;
+    margin: 0 0 2rem 0;
     font-size: 2.5rem;
+    max-width: 100%;
+    text-wrap: nowrap;
 }
 
 .title-span {
@@ -77,6 +79,7 @@ p, a {
 
 h1, h2, h3, h4, h5, h6 {
     font-weight: 400;
+    font-family: 'Poppins', sans-serif;
 }
 
 /* Continue to App Button Styles */
@@ -86,7 +89,7 @@ h1, h2, h3, h4, h5, h6 {
     border-color: var(--color-black);
     border-radius: 12px;
     text-decoration: none;
-    padding: 0.6rem;
+    padding: 0.6rem 0.8rem;
     margin: 0 0 0 0.5rem;
     display: inline-flex;
     vertical-align: middle;

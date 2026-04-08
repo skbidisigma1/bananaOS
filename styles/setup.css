@@ -1,0 +1,220 @@
+/* Styles for the Setup page */
+
+/* CSS Variables */
+:root {
+    --color-primary: #2B652A;
+    --color-primary-dark: #244f1f;
+    --color-background: #181a1b;
+    --color-card: #242729;
+    --color-white: #fff;
+    --color-black: #000;
+    --color-gentle-red: #a83b39;
+    --color-gentle-red-dark: #722827;
+    --color-theme-font: #BFFF8E;
+    --color-subtle-text: #c5c5c5;
+}
+
+body {
+    background-color: var(--color-background);
+    color: var(--color-white);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+}
+
+main {
+    font-family: 'Inter', sans-serif;
+    font-weight: 300;
+    margin: 2rem;
+    padding: 2rem;
+    background-color: var(--color-card);
+    border-radius: 20px;
+    min-height: 40vh;
+}
+
+.hidden {
+    display: none !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 400;
+}
+
+strong {
+    font-weight: 600;
+}
+
+.red-border {
+    border: 3px solid var(--color-gentle-red) !important;
+}
+
+.green-border {
+    border: 3px solid var(--color-primary) !important;
+}
+
+fieldset {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    border: 1px solid var(--color-subtle-text);
+    padding: 1rem;
+    border-radius: 8px;
+    align-items: flex-start;
+}
+
+.main-title {
+    position: fixed;
+    top: 15rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 2.5rem;
+}
+
+.title-span {
+    color: var(--color-theme-font);
+}
+
+.welcome-title {
+    margin-bottom: 0.5rem;
+}
+
+.welcome-description {
+    color: var(--color-subtle-text);
+    margin-bottom: 3rem;
+    margin-top: 0;
+}
+
+input#username-input {
+    padding: 0.5rem;
+    margin: 1rem 0rem 2rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--color-subtle-text);
+    background-color: var(--color-card);
+    color: var(--color-white);
+}
+
+.pfp-section {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.pfp-instruction {
+    font-size: 0.9rem;
+    color: var(--color-subtle-text);
+    margin: 0;
+}
+
+.pfp-controls {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.pfp-box {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 2px solid var(--color-subtle-text);
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--color-subtle-text);
+    transition: all 0.2s ease;
+    overflow: hidden;
+}
+
+.button-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.upload-trigger {
+    cursor: pointer;
+}
+
+.upload-trigger:hover {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+#pfp-preview-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.navigation-button {
+    border-style: solid;
+    border-width: 2px;
+    border-color: var(--color-black);
+    border-radius: 12px;
+    text-decoration: none;
+    padding: 0.6rem 0.8rem;
+    margin: 0;
+    display: inline-flex;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    background-color: var(--color-primary);
+    color: var(--color-white);
+    min-width: 6rem;
+    justify-content: center;
+    align-items: center;
+}
+
+.continue-button:hover {
+    transform: scale(1.05);
+    background-color: var(--color-primary-dark);
+}
+
+.continue-button:active {
+    transform: scale(0.95);
+    background-color: var(--color-primary-dark);
+}
+
+.back-button:hover {
+    transform: scale(1.05);
+    background-color: var(--color-gentle-red-dark);
+}
+
+.back-button:active {
+    transform: scale(0.95);
+    background-color: var(--color-gentle-red-dark);
+}
+
+.navigation-button:disabled {
+    background-color: var(--color-subtle-text);
+    color: var(--color-black);
+    cursor: not-allowed;
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.back-button {
+    background-color: var(--color-gentle-red);
+}
+
+/* Responsiveness for Mobile Devices */
+@media screen and (max-width: 600px) {
+
+    .main-title {
+        font-size: 1.8rem;
+        top: 17rem;
+    }
+
+    * {
+        text-align: center; /* This is probably a bad way to do it but who cares */
+    }
+
+    .button-container {
+        justify-content: center;
+    }
+}

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>bananaOS</title>
+        <meta name="description" content="bananaOS is a simple webOS designed for general use.">
+        <link rel="icon" href="./favicon.ico" type="image/x-icon">
+        <link rel="stylesheet" href="./styles/fonts.css">
+        <link rel="stylesheet" href="./styles/setup.css">
+        <script src="./js/setup.js" defer></script>
+    </head>
+
+    <body>
+        <h1 class="main-title"><span class="title-span">bananaOS</span>&nbsp;Setup</h1>
+        <main class="setup-wrapper">
+            <header>
+                <h2 class="welcome-title">Let's go through the setup process.</h2>
+                <p class="welcome-description">Selected preferences <strong>never</strong> leave your device.</p>
+            </header>
+
+            <section class="step" id="step-1">
+                <h3 class="step-title">Select your theme preferences</h3>
+
+                <form>
+                    <fieldset>
+                        <legend>Choose a theme</legend>
+
+                        <label>
+                            <input type="radio" id="theme-light" name="theme" value="light">
+                            Light
+                        </label>
+
+                        <label>
+                            <input type="radio" id="theme-dark" name="theme" value="dark">
+                            Dark
+                        </label>
+
+                        <label>
+                            <input type="radio" id="theme-default" name="theme" value="default">
+                            Device default
+                        </label>
+                    </fieldset>
+                </form>
+                <section class="button-container">
+                    <button type="button" id="theme-continue-button" class="navigation-button continue-button" disabled>Continue</button>
+                </section>
+            </section>
+
+            <section class="step hidden" id="step-2">
+                <h3 class="step-title">Configure your user profile</h3>
+                <label>Choose a username (3-10 characters)
+                    <input type="text" id="username-input" name="username" autocomplete="given-name" required>
+                </label>
+                <section class="pfp-section">
+                    <p class="pfp-instruction">Upload a profile picture (optional)</p>
+
+                    <div class="pfp-controls">
+                        <label for="pfp-upload" class="pfp-box upload-trigger" title="Upload Image">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 256 256">
+                                <path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"></path>
+                            </svg>
+                        </label>
+                    
+                        <div class="pfp-box preview-box hidden">
+                            <img id="pfp-preview-img" src="" alt="Preview" style="display: none;">
+                        </div>
+                    </div>
+                
+                    <input type="file" id="pfp-upload" accept="image/*" hidden>
+                </section>
+
+                <section class="button-container">
+                    <button type="button" class="navigation-button back-button">Back</button>
+                    <button type="button" id="profile-continue-button" class="navigation-button continue-button" disabled>Continue</button>
+                </section>
+            </section>
+
+            <section class="step hidden" id="step-3">
+                <h3 class="step-title">You're all set!</h3>
+                <p>Your bananaOS setup is complete. Press Continue to begin!</p>
+                <section class="button-container">
+                    <button type="button" class="navigation-button back-button">Back</button>
+                    <button type="button" class="navigation-button continue-button">Continue</button>
+                </section>
+            </section>
+
+        </main>
+    </body>
+
+</html>
