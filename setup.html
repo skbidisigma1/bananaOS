@@ -9,10 +9,11 @@
         <link rel="icon" href="./favicon.ico" type="image/x-icon">
         <link rel="stylesheet" href="./styles/fonts.css">
         <link rel="stylesheet" href="./styles/setup.css">
-        <script src="./js/setup.js" defer></script>
+        <script type="module" src="./js/setup.js" defer></script>
+        <script type="module" src="./js/db.js"></script>
     </head>
 
-    <body>
+    <body class="hidden">
         <h1 class="main-title"><span class="title-span">bananaOS</span>&nbsp;Setup</h1>
         <main class="setup-wrapper">
             <header>
@@ -20,6 +21,7 @@
                 <p class="welcome-description">Selected preferences <strong>never</strong> leave your device.</p>
             </header>
 
+            <!-- Step 1: Theme Selection -->
             <section class="step" id="step-1">
                 <h3 class="step-title">Select your theme preferences</h3>
 
@@ -43,11 +45,9 @@
                         </label>
                     </fieldset>
                 </form>
-                <section class="button-container">
-                    <button type="button" id="theme-continue-button" class="navigation-button continue-button" disabled>Continue</button>
-                </section>
             </section>
 
+            <!-- Step 2: User Profile Configuration -->
             <section class="step hidden" id="step-2">
                 <h3 class="step-title">Configure your user profile</h3>
                 <label>Choose a username (3-10 characters)
@@ -70,17 +70,26 @@
                 
                     <input type="file" id="pfp-upload" accept="image/*" hidden>
                 </section>
-
-                <section class="button-container">
-                    <button type="button" class="navigation-button back-button">Back</button>
-                    <button type="button" id="profile-continue-button" class="navigation-button continue-button" disabled>Continue</button>
-                </section>
             </section>
 
+            <!-- Step 3: Completion -->
             <section class="step hidden" id="step-3">
                 <h3 class="step-title">You're all set!</h3>
                 <p>Your bananaOS setup is complete. Press Continue to begin!</p>
-                <section class="button-container">
+            </section>
+
+            <!-- Button Containers -->
+            <section class="buttons">
+                <section class="button-container" id="button-container-1">
+                    <button type="button" id="theme-continue-button" class="navigation-button continue-button" disabled>Continue</button>
+                </section>
+
+                <section class="button-container hidden" id="button-container-2">
+                    <button type="button" class="navigation-button back-button">Back</button>
+                    <button type="button" id="profile-continue-button" class="navigation-button continue-button" disabled>Continue</button>
+                </section>
+
+                <section class="button-container hidden" id="button-container-3">
                     <button type="button" class="navigation-button back-button">Back</button>
                     <button type="button" class="navigation-button continue-button">Continue</button>
                 </section>

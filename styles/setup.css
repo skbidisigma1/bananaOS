@@ -77,6 +77,12 @@ fieldset {
     color: var(--color-theme-font);
 }
 
+.setup-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
 .welcome-title {
     margin-bottom: 0.5rem;
 }
@@ -211,10 +217,20 @@ input#username-input {
     }
 
     * {
-        text-align: center; /* This is probably a bad way to do it but who cares */
+        text-align: center;
     }
 
     .button-container {
         justify-content: center;
+    }
+
+    .pfp-section {
+        align-items: center;
+    }
+}
+
+@media screen and (max-width: 348px) {
+    .main-title {
+        top: 8rem;
     }
 }
