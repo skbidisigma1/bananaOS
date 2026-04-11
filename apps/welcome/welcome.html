@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome - bananaOS</title>
+        <meta name="description" content="Welcome app for bananaOS.">
+        <meta name="robots" content="noindex">
+        <link rel="icon" href="../../favicon.ico" type="image/x-icon">
+        <link rel="stylesheet" href="../../styles/fonts.css">
+        <link rel="stylesheet" href="./welcome.css">
+    </head>
+    <body class="window-content">
+        <p>Welcome to <strong>bananaOS</strong>!</p>
+        <p>I designed this webOS to be simple and easy to use, while adding some fun features at the same time.</p>
+        <p>Start customizing your desktop however you'd like, and enjoy bananaOS!</p>
+        <p>If you have questions or would like to contribute, feel free to reach out on our <a href="https://github.com/skbidisigma1/bananaOS" target="_blank">GitHub</a>.</p>
+        <div id="welcome-logo-wrapper">
+            <img id="welcome-logo" src="../../assets/images/bananaOS-logo.png" alt="bananaOS Logo">
+        </div>
+        <div class="close-window-btn-wrapper">
+            <button class="close-window-btn" id="welcome-close-btn" data-action="close">Close</button>
+        </div>
+        <script>
+            document.getElementById('welcome-close-btn').addEventListener('click', () => {
+                window.parent.postMessage({ type: 'CLOSE_WINDOW', appId: 'welcome' }, '*');
+            });
+        </script>
+    </body>
+</html>

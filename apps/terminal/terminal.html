@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Terminal - bananaOS</title>
+        <meta name="description" content="Terminal app for bananaOS.">
+        <meta name="robots" content="noindex">
+        <link rel="icon" href="../../favicon.ico" type="image/x-icon">
+        <link rel="stylesheet" href="../../styles/fonts.css">
+        <link rel="stylesheet" href="./terminal.css">
+        <script type="module" src="./terminal.js"></script>
+        <script type="module" src="./commands.js"></script>
+    </head>
+
+    <body class="window-content">
+        <main id="terminal">
+            <section id="terminal-history">
+                <div class="terminal-entry">Type 'help' for a list of available commands.</div>
+            </section>
+            <section id="input-line">
+                <span id="prompt">user@bananaOS:~$ </span>
+                <input type="text" id="terminal-input" autofocus autocomplete="off" spellcheck="false" autocapitalize="off">
+            </section>
+        </main>
+    </body>

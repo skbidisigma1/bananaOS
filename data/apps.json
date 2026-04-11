@@ -1,0 +1,39 @@
+{
+    "apps": [
+        {
+            "id": "welcome",
+            "name": "Welcome",
+            "icon": "./assets/images/icons/welcome.svg",
+            "path": "./apps/welcome/welcome.html",
+            "resizable": true
+        },
+        {
+            "id": "files",
+            "name": "Files",
+            "icon": "./assets/images/icons/files.svg",
+            "path": "./apps/files/files.html",
+            "resizable": true
+        },
+        {
+            "id": "text-editor",
+            "name": "Text Editor",
+            "icon": "./assets/images/icons/text-editor.svg",
+            "path": "./apps/text-editor/text-editor.html",
+            "resizable": true
+        },
+        {
+            "id": "settings",
+            "name": "Settings",
+            "icon": "./assets/images/icons/settings.svg",
+            "path": "./apps/settings/settings.html",
+            "resizable": true
+        },
+        {
+            "id": "terminal",
+            "name": "Terminal",
+            "icon": "./assets/images/icons/terminal.svg",
+            "path": "./apps/terminal/terminal.html",
+            "resizable": true
+        }
+    ]
+}

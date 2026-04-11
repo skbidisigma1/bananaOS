@@ -1,3 +1,4 @@
+// desktop.js - Way too much stuff
 import { db, isSetupComplete } from './db.js';
 
 // Check if setup is complete before loading desktop
@@ -16,8 +17,9 @@ checkSetup();
 // Element references
 const clockTime = document.getElementById('clock-time');
 const clockDate = document.getElementById('clock-date');
-const windows = document.querySelectorAll('.window');
+const getWindows = () => document.querySelectorAll('.window');
 const container = document.getElementById('window-container');
+
 // Update clock every second
 setInterval(function() {
     const now = new Date();
@@ -29,29 +31,83 @@ setInterval(function() {
 let activeWindow = null;
 let offsetX = 0;
 let offsetY = 0;
+let dragStartX = 0;
+let dragStartY = 0;
 let isResizing = false;
 let currentResizer = null;
 let draggingIcon = null;
-const GRID_SIZE_X = 70; // .desktop-icon width + gap
-const GRID_SIZE_Y = 80; // .desktop-icon height + gap
+let potentialDragIcon = null;
+let initialMouseX = 0;
+let initialMouseY = 0;
+const GRID_PADDING = 16;
+const GRID_SIZE_X = 76; // .desktop-icon width (60) + gap (16)
+const GRID_SIZE_Y = 86; // .desktop-icon height (70) + gap (16)
+
+// Helper function to save window sizes
+function saveWindowSizes(win) {
+    win.dataset.restoreWidth = `${win.offsetWidth}px`;
+    win.dataset.restoreHeight = `${win.offsetHeight}px`;
+    win.dataset.restoreLeft = `${win.offsetLeft}px`;
+    win.dataset.restoreTop = `${win.offsetTop}px`;
+}
+
+// Helper function to restore window sizes
+function restoreWindowSizes(win) {
+    win.style.width = win.dataset.restoreWidth || '600px';
+    win.style.height = win.dataset.restoreHeight || '400px';
+    win.style.left = win.dataset.restoreLeft || '0px';
+    win.style.top = win.dataset.restoreTop || '0px';
+}
+
+function restoreWindowDimensions(win) {
+    win.style.width = win.dataset.restoreWidth || '600px';
+    win.style.height = win.dataset.restoreHeight || '400px';
+}
+
 
 // Event listener for desktop icon dragging
 document.querySelectorAll('.desktop-icon').forEach(icon => {
     icon.onmousedown = (e) => {
+
         e.stopPropagation();
-        draggingIcon = icon;
+        potentialDragIcon = icon;
+        initialMouseX = e.clientX;
+        initialMouseY = e.clientY;
 
     const rect = icon.getBoundingClientRect();
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
-    icon.classList.add('dragging');
-
-    container.appendChild(icon); // Restores absolute positioning
     };
+});
+
+// Add selected class to clicked desktop icon and remove from others
+document.querySelectorAll('.desktop-icon').forEach(icon => {
+    icon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.desktop-icon').forEach(i => i.classList.remove('selected'));
+        icon.classList.add('selected');
+    });
+
+    icon.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const appId = icon.dataset.appId || icon.id.replace('desktop-', '');
+        openApp(appId);
+    });
 });
 
 // Visually follow the mouse while dragging the icon
 document.addEventListener('mousemove', (e) => {
+    if (!draggingIcon && potentialDragIcon) {
+        if (Math.abs(e.clientX - initialMouseX) > 2 || Math.abs(e.clientY - initialMouseY) > 2) {
+            draggingIcon = potentialDragIcon;
+            potentialDragIcon = null;
+            draggingIcon.classList.add('dragging');
+            container.appendChild(draggingIcon);
+        } else {
+            return;
+        }
+    }
+
     if (!draggingIcon) return;
 
     const containerRect = container.getBoundingClientRect();
@@ -63,6 +119,7 @@ document.addEventListener('mousemove', (e) => {
     draggingIcon.style.top = `${y}px`;
 });
 
+// Mouse up to snap icon to grid and stop dragging
 document.addEventListener('mouseup', (e) => {
     if (!draggingIcon) return;
 
@@ -72,8 +129,8 @@ document.addEventListener('mouseup', (e) => {
     const iconY = e.clientY - containerRect.top - offsetY;
 
     // Snap to grid
-    let snapX = Math.round(iconX / GRID_SIZE_X) * GRID_SIZE_X;
-    let snapY = Math.round(iconY / GRID_SIZE_Y) * GRID_SIZE_Y;
+    let snapX = Math.round((iconX - GRID_PADDING) / GRID_SIZE_X) * GRID_SIZE_X + GRID_PADDING;
+    let snapY = Math.round((iconY - GRID_PADDING) / GRID_SIZE_Y) * GRID_SIZE_Y + GRID_PADDING;
 
     const maxX = container.clientWidth - draggingIcon.offsetWidth;
     const maxY = container.clientHeight - draggingIcon.offsetHeight;
@@ -93,10 +150,26 @@ document.addEventListener('mouseup', () => {
     activeWindow = null;
     isResizing = false;
     currentResizer = null;
+    potentialDragIcon = null;
+});
+
+document.addEventListener('click', (e) => {
+    // If clicking outside of any window, reset z-index of all windows
+    if (!e.target.closest('.window')) {
+        getWindows().forEach(win => win.style.zIndex = "500");
+    }
+
+    // If clicking after a desktop icon is selected, remove the "selected" state from all icons
+    if (e.target.closest('.desktop-icon')) {
+        document.querySelectorAll('.desktop-icon').forEach(icon => icon.classList.remove('selected'));
+        e.target.closest('.desktop-icon').classList.add('selected');
+    } else {
+        document.querySelectorAll('.desktop-icon').forEach(icon => icon.classList.remove('selected'));
+    }
 });
 
 // Initialize windows
-windows.forEach(win => {
+getWindows().forEach(win => {
     const header = win.querySelector('.window-header');
 
     // Fallback if window is missing header
@@ -115,9 +188,11 @@ windows.forEach(win => {
         activeWindow = win;
         offsetX = e.clientX - win.offsetLeft;
         offsetY = e.clientY - win.offsetTop;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
         isResizing = false;
 
-        windows.forEach(w => w.style.zIndex = "1");
+        getWindows().forEach(w => w.style.zIndex = "500");
         win.style.zIndex = "1000";
     }
 
@@ -129,7 +204,7 @@ windows.forEach(win => {
             isResizing = true;
             currentResizer = resizer;
             activeWindow = win;
-            windows.forEach(w => w.style.zIndex = "1");
+            getWindows().forEach(w => w.style.zIndex = "500");
             win.style.zIndex = "1000";
         });
     });
@@ -141,6 +216,14 @@ document.addEventListener('mousemove', (e) => {
         // Calculate where the user is dragging the window
         let newX = e.clientX - offsetX;
         let newY = e.clientY - offsetY;
+
+        // If window is maximized, restore it before dragging
+        const windowContainerRect = container.getBoundingClientRect();
+        const windowRect = activeWindow.getBoundingClientRect();
+        const dragDeltaY = e.clientY - dragStartY;
+        if (windowRect.width >= windowContainerRect.width && windowRect.height >= windowContainerRect.height && dragDeltaY > 10) {
+            restoreWindowDimensions(activeWindow);
+        }
 
         // Clamp the window's position within the container
         const maxX = container.clientWidth - activeWindow.offsetWidth;
@@ -230,7 +313,7 @@ function handleResize(e) {
 
 // Ensure windows are within bounds on browser resize
 window.addEventListener('resize', () => {
-    windows.forEach(win => {
+    getWindows().forEach(win => {
         const maxX = container.clientWidth - win.offsetWidth;
         const maxY = container.clientHeight - win.offsetHeight;
 
@@ -240,5 +323,245 @@ window.addEventListener('resize', () => {
         if (win.offsetTop > maxY) {
             win.style.top = `${Math.max(0, maxY)}px`;
         }
+    });
+});
+
+// Maximize app when double-clicking header or clicking maximize button
+getWindows().forEach(win => {
+    const header = win.querySelector('.window-header');
+    const fullscreenBtn = header.querySelector('.window-operations').querySelector('.window-fullscreen');
+
+    if (header) {
+        header.addEventListener('dblclick', () => {
+            const windowContainerRect = document.getElementById('window-container').getBoundingClientRect();
+            const windowRect = win.getBoundingClientRect();
+            // If unmaximizing
+            if (windowRect.width >= windowContainerRect.width && windowRect.height >= windowContainerRect.height) {
+                restoreWindowSizes(win);
+            } else {
+                // If maximizing
+                saveWindowSizes(win);
+                win.style.width = `${windowContainerRect.width}px`;
+                win.style.height = `${windowContainerRect.height}px`;
+                win.style.top = `0px`;
+                win.style.left = `0px`;
+            }
+        });
+    }
+
+    if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', () => {
+            const windowContainerRect = document.getElementById('window-container').getBoundingClientRect();
+            const windowRect = win.getBoundingClientRect();
+            // If unmaximizing
+            if (windowRect.width >= windowContainerRect.width && windowRect.height >= windowContainerRect.height) {
+                restoreWindowSizes(win);
+            } else {
+                // If maximizing
+                saveWindowSizes(win);
+                win.style.width = `${windowContainerRect.width}px`;
+                win.style.height = `${windowContainerRect.height}px`;
+                win.style.top = `0px`;
+                win.style.left = `0px`;
+            }
+        });
+    }
+});
+
+// Fullscreen window when dragged to top of screen
+let topSnapMouseUpHandler = null;
+
+document.addEventListener('mousemove', (e) => {
+    if (activeWindow && !isResizing) {
+        const containerRect = container.getBoundingClientRect();
+        const windowRect = activeWindow.getBoundingClientRect();
+        const isNearTop = e.clientY - containerRect.top <= 2;
+
+        if (isNearTop && !topSnapMouseUpHandler) {
+            const draggedWindow = activeWindow;
+            topSnapMouseUpHandler = () => {
+                topSnapMouseUpHandler = null;
+                if (!draggedWindow) return;
+
+                const windowContainerRect = container.getBoundingClientRect();
+                if (windowRect.width >= windowContainerRect.width && windowRect.height >= windowContainerRect.height) {
+                    restoreWindowSizes(draggedWindow);
+                } else {
+                    saveWindowSizes(draggedWindow);
+                    draggedWindow.style.width = `${windowContainerRect.width}px`;
+                    draggedWindow.style.height = `${windowContainerRect.height}px`;
+                    draggedWindow.style.top = `0px`;
+                    draggedWindow.style.left = `0px`;
+                }
+            };
+
+            document.addEventListener('mouseup', topSnapMouseUpHandler, { once: true });
+        }
+
+        if (!isNearTop && topSnapMouseUpHandler) {
+            document.removeEventListener('mouseup', topSnapMouseUpHandler);
+            topSnapMouseUpHandler = null;
+        }
+    }
+});
+
+// Close windows when close button is clicked
+getWindows().forEach(win => {
+    const closeBtn = win.querySelector('.window-operations').querySelector('.window-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            win.remove();
+        });
+    }
+});
+
+// Close windows when buttons with data-action="close" are clicked
+getWindows().forEach(win => {
+    const closeButtons = win.querySelectorAll('[data-action="close"]');
+    closeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            win.remove();
+        });
+    });
+});
+
+
+// Load app registry
+let appsRegistry = [];
+fetch('./data/apps.json')
+    .then(res => res.json())
+    .then(data => {
+        appsRegistry = data.apps;
+    });
+
+window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'CLOSE_WINDOW') {
+        const win = document.querySelector(`.window[data-app-id="${e.data.appId}"]`);
+        if (win) win.remove();
+    }
+});
+
+function openApp(appId) {
+    const existingWin = document.querySelector(`.window[data-app-id="${appId}"]`);
+    if (existingWin) {
+        getWindows().forEach(w => w.style.zIndex = "500");
+        existingWin.style.zIndex = "1000";
+        return;
+    }
+
+    const app = appsRegistry.find(a => a.id === appId);
+    if (!app) {
+        console.error("App " + appId + " not found!");
+        return;
+    }
+
+    const win = document.createElement('div');
+    win.className = 'window';
+    win.dataset.appId = app.id;
+    win.style.width = '600px';
+    win.style.height = '400px';
+    win.style.left = '50px';
+    win.style.top = '50px';
+    win.style.zIndex = "1000";
+    getWindows().forEach(w => w.style.zIndex = "500");
+
+    // HTML for resizers and window
+    // This is safe right? Prolly
+    let resizersHtml = '';
+    if (app.resizable !== false) {
+        resizersHtml = `
+            <div class="resizer n"></div>
+            <div class="resizer e"></div>
+            <div class="resizer s"></div>
+            <div class="resizer w"></div>
+            <div class="resizer ne"></div>
+            <div class="resizer se"></div>
+            <div class="resizer sw"></div>
+            <div class="resizer nw"></div>
+        `;
+    }
+
+    win.innerHTML = `
+        ${resizersHtml}
+        <div class="window-header">
+            <span class="window-title">${app.name}</span>
+            <div class="window-operations">
+                <button class="window-minimize"></button>
+                <button class="window-fullscreen">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="#FFFFFF" viewBox="0 0 256 256"></svg>
+                </button>
+                <button class="window-close">
+                </button>
+            </div>
+        </div>
+        <div class="window-content" style="padding: 0; overflow: hidden;">
+            <iframe src="${app.path}" style="width: 100%; height: 100%; border: none; border-bottom-left-radius: 0.5rem; border-bottom-right-radius: 0.5rem;"></iframe>
+        </div>
+    `;
+
+    document.getElementById('window-container').appendChild(win);
+    initWindow(win);
+}
+
+// Ensure functionality is attached dynamically to newly created windows
+function initWindow(win) {
+    const header = win.querySelector('.window-header');
+    if (!header) return;
+
+    win.onmousedown = () => { win.style.zIndex = "1000"; }
+
+    header.onmousedown = (e) => {
+        activeWindow = win;
+        offsetX = e.clientX - win.offsetLeft;
+        offsetY = e.clientY - win.offsetTop;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        isResizing = false;
+        getWindows().forEach(w => w.style.zIndex = "500");
+        win.style.zIndex = "1000";
+    }
+
+    const resizers = win.querySelectorAll('.resizer');
+    resizers.forEach(resizer => {
+        resizer.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            isResizing = true;
+            currentResizer = resizer;
+            activeWindow = win;
+            getWindows().forEach(w => w.style.zIndex = "500");
+            win.style.zIndex = "1000";
+        });
+    });
+
+    const fullscreenBtn = header.querySelector('.window-operations').querySelector('.window-fullscreen');
+    const toggleMax = () => {
+        const containerRect = document.getElementById('window-container').getBoundingClientRect();
+        const windowRect = win.getBoundingClientRect();
+        if (windowRect.width >= containerRect.width && windowRect.height >= containerRect.height) {
+            restoreWindowSizes(win);
+        } else {
+            saveWindowSizes(win);
+            win.style.width = `${containerRect.width}px`;
+            win.style.height = `${containerRect.height}px`;
+            win.style.top = `0px`;
+            win.style.left = `0px`;
+        }
+    };
+
+    header.addEventListener('dblclick', toggleMax);
+    if (fullscreenBtn) fullscreenBtn.addEventListener('click', toggleMax);
+
+    const closeBtn = win.querySelector('.window-operations').querySelector('.window-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => win.remove());
+
+    const closeButtons = win.querySelectorAll('[data-action="close"]');
+    closeButtons.forEach(btn => btn.addEventListener('click', () => win.remove()));
+}
+
+
+document.querySelectorAll('.taskbar-app-icon').forEach(icon => {
+    icon.addEventListener('click', (e) => {
+        const appId = icon.id;
+        openApp(appId);
     });
 });

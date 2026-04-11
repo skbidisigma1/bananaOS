@@ -1,0 +1,62 @@
+/* Styles for the Terminal app */
+/* CSS Variables */
+:root {
+    --color-primary: #2B652A;
+    --color-primary-dark: #244f1f;
+    --color-background: #181a1b;
+    --color-card: #242729;
+    --color-white: #fff;
+    --color-black: #000;
+    --color-gentle-red: #a83b39;
+    --color-gentle-red-dark: #722827;
+    --color-yellow: #ffcc13;
+    --color-yellow-dark: #a17917;
+    --color-theme-font: #BFFF8E;
+    --color-subtle-text: #c5c5c5;
+}
+
+.hidden {
+    display: none !important;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background-color: var(--color-card);
+}
+
+#terminal {
+    font-family: 'Ubuntu Mono', monospace;
+    font-size: 1.2rem;
+    padding: 0.5rem;
+    background-color: var(--color-card);
+    color: var(--color-white);
+    -ms-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+}
+
+#terminal-history div {
+    white-space: pre-wrap;
+}
+
+#prompt {
+    white-space: pre-wrap;
+}
+
+#input-line {
+    display: flex;
+}
+
+#terminal-input {
+    flex-grow: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--color-white);
+    font-family: inherit;
+    font-size: inherit;
+}

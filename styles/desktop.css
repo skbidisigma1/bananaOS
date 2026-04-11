@@ -140,15 +140,16 @@ footer {
 /* Desktop Styles */
 #desktop-grid {
     display: grid;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    grid-template-columns: repeat(auto-fill, 80px);
-    grid-template-rows: repeat(auto-fill, 100px);
+    grid-template-columns: repeat(auto-fill, 60px);
+    grid-template-rows: repeat(auto-fill, 70px);
     grid-auto-flow: column;
-    gap: 1rem;
-    padding: 1rem;
+    gap: 16px;
+    padding: 16px;
     pointer-events: none;
 }
 
@@ -164,6 +165,7 @@ footer {
     border-radius: 0.5rem;
     pointer-events: auto;
     z-index: 5;
+    font-size: 0.75rem;
     -ms-user-select: none;
     -moz-user-select: none;
     user-select: none;
@@ -176,8 +178,11 @@ footer {
 .desktop-icon.dragging {
     position: absolute;
     z-index: 2000;
-    pointer-events: none;
     transition: none;
+}
+
+.desktop-icon.selected {
+    background-color: rgba(0, 123, 255, 0.4);
 }
 
 /* Window Styles */
@@ -200,54 +205,26 @@ footer {
     border: 1px solid var(--color-black);
     border-radius: 0.5rem;
     box-sizing: border-box;
+    z-index: 500;
 }
 
 .window-content {
     display: flex;
     flex-direction: column;
-    padding: 1rem;
+    padding: 0;
     background-color: var(--color-card);
     border-bottom-left-radius: 0.5rem;
     border-bottom-right-radius: 0.5rem;
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
 }
 
-#welcome-logo-wrapper {
+.window-content iframe {
     width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 2rem;
-    margin-top: 1rem;
-}
-
-#welcome-logo {
-    width: 15rem;
-    height: auto;
-    background-size: cover;
-    -ms-user-select: none;
-    -moz-user-select: none;
-    user-select: none;
-}
-
-.close-window-btn-wrapper {
-    display: flex;
-    justify-content: center;
-}
-
-.close-window-btn {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    height: 100%;
     border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    width: 8rem;
-    -ms-user-select: none;
-    -moz-user-select: none;
-    user-select: none;
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
 }
 
 .window-header {
