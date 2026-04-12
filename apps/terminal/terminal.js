@@ -9,11 +9,16 @@ const input = document.getElementById('terminal-input');
 const history = document.getElementById('terminal-history');
 const terminalContainer = document.getElementById('terminal');
 
+// Terminal State
+let cwd = '/home/user';
+const setCwd = (newCwd) => { cwd = newCwd; updatePrompt(); };
+
 // Set prompt to username on load
-if (usernameEntry) {
-    const username = usernameEntry.value || 'user';
-    prompt.textContent = `${username}@bananaOS:~$ `;
-};
+const username = usernameEntry ? (usernameEntry.value || 'user') : 'user';
+function updatePrompt() {
+    prompt.textContent = `${username}@bananaOS:${cwd}$ `;
+}
+updatePrompt();
 
 // Commands
 input.addEventListener('keydown', async (e) => {
@@ -26,8 +31,10 @@ input.addEventListener('keydown', async (e) => {
 
         // Execute command if it exists
         if (commands[command.toLowerCase()]) {
-                const output = await commands[command.toLowerCase()](args);
-                appendToHistory(output);
+                const output = await commands[command.toLowerCase()](args, { cwd, setCwd });
+                if (output !== undefined && output !== '') {
+                    appendToHistory(output);
+                }
         } else if (inputValue !== '') {
                 appendToHistory(`Command not found: ${command}`);
             }

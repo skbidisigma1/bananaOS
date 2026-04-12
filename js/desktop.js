@@ -1,5 +1,5 @@
 // desktop.js - Way too much stuff
-import { db, isSetupComplete } from './db.js';
+import { db, isSetupComplete, initFS } from './db.js';
 
 // Check if setup is complete before loading desktop
 async function checkSetup() {
@@ -7,9 +7,11 @@ async function checkSetup() {
     if (!setupComplete) {
         // Redirect to setup page if not set up
         window.location.replace('./setup');
-} else {
-    // Unhide body since setup is complete
-    document.body.classList.remove('hidden');
+    } else {
+        // Run any FS initialization guarantees needed
+        await initFS();
+        // Unhide body since setup is complete
+        document.body.classList.remove('hidden');
     }
 }
 checkSetup();

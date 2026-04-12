@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Files - bananaOS</title>
+        <meta name="description" content="Files app for bananaOS.">
+        <meta name="robots" content="noindex">
+        <link rel="icon" href="../../favicon.ico" type="image/x-icon">
+        <link rel="stylesheet" href="../../styles/fonts.css">
+        <link rel="stylesheet" href="./files.css">
+        <script type="module" src="./files.js"></script>
+    </head>
+
+    <body class="window-content">
+        <main id="files">
+            <section id="tabs">
+                <button class="tab active">
+                    <div class="tab-text">
+                        <span class="tab-icon">📁</span>
+                        <span class="tab-label">Downloads</span>
+                    </div>
+                    <div class="tab-close">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg></div>
+                </button>
+            </section>
+            <section id="path-bar">
+                <section id="path-controls">
+                    <button class="path-button" id="back-button" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path></svg>
+                    </button>
+                    <button class="path-button" id="forward-button" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"></path></svg>
+                    </button>
+                    <button class="path-button" id="up-button" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M205.66,117.66a8,8,0,0,1-11.32,0L136,59.31V216a8,8,0,0,1-16,0V59.31L61.66,117.66a8,8,0,0,1-11.32-11.32l72-72a8,8,0,0,1,11.32,0l72,72A8,8,0,0,1,205.66,117.66Z"></path></svg>
+                    </button>
+                </section>
+                <input id="path-display" value="/home/user/Downloads">
+            </section>
+            <section id="file-controls"></section>
+            <section id="sidebar"></section>
+            <section id="file-view"></section>
+        </main>
+    </body>

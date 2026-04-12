@@ -1,9 +1,9 @@
 // Command Registry
-import { db } from "../../js/db.js";
+import { db, readDir, mkdir, resolvePath } from "../../js/db.js";
 
 export const commands = {
     help: async (args) => {
-        return args.join(' ') + '\nAvailable commands:\n- help: Show this message\n- echo: Echo an input back to the terminal\n- whoami: Show the current user\n- clear: Clear the terminal history';
+        return args.join(' ') + '\nAvailable commands:\n- help: Show this message\n- echo: Echo an input back to the terminal\n- whoami: Show the current user\n- clear: Clear the terminal history\n- pwd: Print working directory\n- ls: List directory contents\n- cd: Change directory\n- mkdir: Make directory';
     },
     echo: async (args) => {
         return args.join(' ');
@@ -16,6 +16,61 @@ export const commands = {
     clear: async () => {
         const history = document.getElementById('terminal-history');
         history.innerHTML = '';
+        return '';
+    },
+    pwd: async (args, { cwd }) => {
+        return cwd;
+    },
+    ls: async (args, { cwd }) => {
+        const path = args[0] || cwd;
+        const targetNode = await resolvePath(path, cwd);
+        if (!targetNode) return `ls: cannot access '${path}': No such file or directory`;
+        if (targetNode.type !== 'dir') return targetNode.name;
+
+        const contents = await readDir(targetNode.id);
+        if (contents.length === 0) return '';
+        return contents.map(node => (node.type === 'dir' ? `[DIR]  ${node.name}` : `${node.name}`)).join('\n');
+    },
+    cd: async (args, { cwd, setCwd }) => {
+        const path = args[0] || '/home/user';
+        const targetNode = await resolvePath(path, cwd);
+        
+        if (!targetNode) return `-bash: cd: ${path}: No such file or directory`;
+        if (targetNode.type !== 'dir') return `-bash: cd: ${path}: Not a directory`;
+
+        // Reconstruct the normalized path
+        let newCwd = path;
+        if (!path.startsWith('/')) {
+            newCwd = cwd.endsWith('/') ? `${cwd}${path}` : `${cwd}/${path}`;
+        }
+        
+        // Normalization for display
+        const parts = newCwd.split('/').filter(p => p !== '');
+        const normalized = [];
+        for (const part of parts) {
+            if (part === '.') continue;
+            if (part === '..') normalized.pop();
+            else normalized.push(part);
+        }
+        
+        setCwd('/' + normalized.join('/'));
+        return '';
+    },
+    mkdir: async (args, { cwd }) => {
+        if (!args[0]) return 'mkdir: missing operand';
+        const path = args[0];
+        
+        // Find parent dir
+        const parts = path.split('/');
+        const dirName = parts.pop();
+        const parentPath = parts.join('/') || '.';
+        
+        const parentNode = await resolvePath(parentPath, cwd);
+        if (!parentNode) return `mkdir: cannot create directory '${path}': No such file or directory`;
+        if (parentNode.type !== 'dir') return `mkdir: cannot create directory '${path}': Not a directory`;
+        
+        // Create directory
+        await mkdir(parentNode.id, dirName);
         return '';
     }
 };

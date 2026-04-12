@@ -1,5 +1,5 @@
 // Database import
-import { db, isSetupComplete } from './db.js';
+import { db, isSetupComplete, initFS } from './db.js';
 
 // Variables
 let currentStep = 1;
@@ -170,6 +170,10 @@ async function saveSettings() {
     await db.config.put({ key: 'theme', value: theme });
     await db.config.put({ key: 'username', value: username });
     await db.config.put({ key: 'pfp', value: pfpBase64 });
+    await db.config.put({ key: 'setupComplete', value: true });
+
+    // Initialize the file system upon completing setup
+    await initFS();
 }
 
 // Helper to convert image to base64 string
