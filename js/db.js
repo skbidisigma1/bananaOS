@@ -17,6 +17,13 @@ export async function isSetupComplete() {
 // File creation
 export async function writeFile(parentId, name, content, type = 'text/plain') {
     return await db.transaction('rw', db.fs_nodes, db.fs_data, async () => {
+        const existing = await db.fs_nodes.where({ parentId, name }).first();
+        if (existing && existing.type === 'file') {
+            await db.fs_data.where({ nodeId: existing.id }).modify({ data: content });
+            await db.fs_nodes.update(existing.id, { modified: Date.now(), size: content.size || content.length });
+            return existing.id;
+        }
+
         const id = await db.fs_nodes.add({ parentId, name, type: 'file', mime: type, size: content.size || content.length, modified: Date.now() });
         await db.fs_data.add({ nodeId: id, data: content });
         return id;
@@ -30,6 +37,10 @@ export async function readDir(parentId) {
 
 // Make directory
 export async function mkdir(parentId, name) {
+    const existing = await db.fs_nodes.where({ parentId, name }).first();
+    if (existing && existing.type === 'dir') {
+        return existing.id; // avoid duplicate paths mapping errors
+    }
     return await db.fs_nodes.add({ parentId, name, type: 'dir', modified: Date.now() });
 }
 

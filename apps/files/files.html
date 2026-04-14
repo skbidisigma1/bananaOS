@@ -23,6 +23,9 @@
                     <div class="tab-close">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg></div>
                 </button>
+                <div class="new-tab">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208Zm-32-80a8,8,0,0,1-8,8H136v32a8,8,0,0,1-16,0V136H88a8,8,0,0,1,0-16h32V88a8,8,0,0,1,16,0v32h32A8,8,0,0,1,176,128Z"></path></svg>
+                </div>
             </section>
             <section id="path-bar">
                 <section id="path-controls">
@@ -38,8 +41,90 @@
                 </section>
                 <input id="path-display" value="/home/user/Downloads">
             </section>
-            <section id="file-controls"></section>
             <section id="sidebar"></section>
+            <section id="file-controls">
+                <div class="file-control-btn" id="new-folder" title="New folder">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72ZM92.69,56l16,16H40V56ZM216,200H40V88H216Zm-88-88a8,8,0,0,1,8,8v16h16a8,8,0,0,1,0,16H136v16a8,8,0,0,1-16,0V152H104a8,8,0,0,1,0-16h16V120A8,8,0,0,1,128,112Z"></path></svg>
+                </div>
+                <div class="file-control-btn" id="new-file" title="New file">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Zm-40-64a8,8,0,0,1-8,8H136v16a8,8,0,0,1-16,0V160H104a8,8,0,0,1,0-16h16V128a8,8,0,0,1,16,0v16h16A8,8,0,0,1,160,152Z"></path></svg>
+                </div>
+                <div class="file-control-separator">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="208" viewBox="120 24 16 208" fill="#c5c5c5">
+                      <path d="M136,24V232a8,8,0,0,1-16,0V24a8,8,0,0,1,16,0Z"/>
+                    </svg>
+                </div>
+                <div class="file-control-btn" id="cut" title="Cut">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M157.73,113.13A8,8,0,0,1,159.82,102L227.48,55.7a8,8,0,0,1,9,13.21l-67.67,46.3a7.92,7.92,0,0,1-4.51,1.4A8,8,0,0,1,157.73,113.13Zm80.87,85.09a8,8,0,0,1-11.12,2.08L136,137.7,93.49,166.78a36,36,0,1,1-9-13.19L121.83,128,84.44,102.41a35.86,35.86,0,1,1,9-13.19l143,97.87A8,8,0,0,1,238.6,198.22ZM80,180a20,20,0,1,0-5.86,14.14A19.85,19.85,0,0,0,80,180ZM74.14,90.13a20,20,0,1,0-28.28,0A19.85,19.85,0,0,0,74.14,90.13Z"></path></svg>
+                </div>
+                <div class="file-control-btn" id="copy" title="Copy">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"></path></svg>
+                </div>
+                <div class="file-control-btn" id="paste" title="Paste">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M168,152a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,152Zm-8-40H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16Zm56-64V216a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V48A16,16,0,0,1,56,32H92.26a47.92,47.92,0,0,1,71.48,0H200A16,16,0,0,1,216,48ZM96,64h64a32,32,0,0,0-64,0ZM200,48H173.25A47.93,47.93,0,0,1,176,64v8a8,8,0,0,1-8,8H88a8,8,0,0,1-8-8V64a47.93,47.93,0,0,1,2.75-16H56V216H200Z"></path></svg>
+                </div>
+                <div class="file-control-btn" id="delete" title="Delete">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"></path></svg>
+                </div>
+                <div class="file-control-separator">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="208" viewBox="120 24 16 208" fill="#c5c5c5">
+                      <path d="M136,24V232a8,8,0,0,1-16,0V24a8,8,0,0,1,16,0Z"/>
+                    </svg>
+                </div>
+                <div class="file-control-btn" id="sort" title="Sort and filter">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M230.6,49.53A15.81,15.81,0,0,0,216,40H40A16,16,0,0,0,28.19,66.76l.08.09L96,139.17V216a16,16,0,0,0,24.87,13.32l32-21.34A16,16,0,0,0,160,194.66V139.17l67.74-72.32.08-.09A15.8,15.8,0,0,0,230.6,49.53ZM40,56h0Zm106.18,74.58A8,8,0,0,0,144,136v58.66L112,216V136a8,8,0,0,0-2.16-5.47L40,56H216Z"></path></svg>
+                </div>
+                <div class="file-control-btn" id="search" title="Search">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"></path></svg>
+                </div>
+            </section>
             <section id="file-view"></section>
+            <section id="filter-menu">
+                <div class="sort-option">Sort by Name</div>
+                <div class="sort-option">Sort by Size</div>
+                <div class="sort-option">Sort by Date</div>
+                <div class="sort-option" id="type-sort">
+                    <span>Filter by type</span>
+                    <select name="file-type" id="file-type-select">
+                        <option value="all">All files</option>
+                        <option value="folders">Folders</option>
+                        <option value="documents">Documents</option>
+                        <option value="images">Images</option>
+                        <option value="videos">Videos</option>
+                        <option value="audio">Audio</option>
+                        <option value="archives">Archives</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <div class="filter-other">
+                        <input type="text" placeholder="Enter custom filter (e.g. .txt)" name="file-type">
+                    </div>
+                </div>
+            </section>
+            <section id="search-menu">
+                <input type="text" placeholder="Search files..." name="search-term">
+            </section>
+            <section class="modal hidden" id="new-folder-modal">
+                <div class="modal-content">
+                    <h2>Create new folder</h2>
+                    <input type="text" placeholder="Folder name" name="folder-name">
+                    <div class="modal-buttons">
+                        <button id="cancel-new-folder">Cancel</button>
+                        <button id="confirm-new-folder" class="primary">Create</button>
+                    </div>
+                </div>
+            </section>
+            <section class="modal hidden" id="new-file-modal">
+                <div class="modal-content">
+                    <h2>Create new file</h2>
+                    <input type="text" placeholder="File name" name="file-name">
+                    <div class="modal-buttons">
+                        <button id="cancel-new-file">Cancel</button>
+                        <button id="upload-file" class="icon-btn" title="Upload File">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"></path></svg>
+                        </button>
+                        <button id="confirm-new-file" class="primary">Create</button>
+                    </div>
+                </div>
+            </section>
         </main>
     </body>

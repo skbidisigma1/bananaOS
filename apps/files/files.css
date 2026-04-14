@@ -28,6 +28,7 @@ html, body, main {
     overflow: hidden;
     background-color: var(--color-card);
     font-family: 'Inter', sans-serif;
+    font-weight: 300;
 }
 
 #files {
@@ -38,9 +39,24 @@ html, body, main {
     -ms-user-select: none;
     -moz-user-select: none;
     user-select: none;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas:
+        "tabs tabs"
+        "path-bar path-bar"
+        "sidebar file-controls"
+        "sidebar file-view";
+    height: 100%;
+    width: 100vw;
+}
+
+#file-view {
+    grid-area: file-view;
 }
 
 section#tabs {
+    grid-area: tabs;
     display: flex;
     gap: 0.5rem;
     width: 100%;
@@ -49,7 +65,7 @@ section#tabs {
 }
 
 .tab {
-    padding: 0 0.5rem; /* Adjusted padding */
+    padding: 0 0.5rem;
     background-color: var(--color-card);
     color: var(--color-white);
     border: none;
@@ -60,9 +76,23 @@ section#tabs {
     cursor: pointer;
     transition: all 0.2s ease;
     display: grid;
-    grid-template-columns: 1.5rem 1fr 1.5rem; /* Left spacer, center text, right close */
+    grid-template-columns: 1.5rem 1fr 1.5rem;
     align-items: center;
     justify-items: center;
+}
+
+.new-tab {
+    background: none;
+    border: none;
+    outline: none;
+    height: 100%;
+    width: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: -0.2rem;
 }
 
 .tab:hover {
@@ -111,6 +141,7 @@ section#tabs {
     background-color: var(--color-card);
     border-bottom: 1px solid var(--color-background);
     height: 2.5rem;
+    grid-area: path-bar;
 }
 
 #path-controls {
@@ -131,7 +162,7 @@ section#tabs {
     width: 2rem;
     height: 2rem;
     border-radius: 4px;
-    transition: background-color 0.2s;
+    transition: all 0.1s ease;
 }
 
 .path-button:hover:not(:disabled) {
@@ -156,4 +187,428 @@ section#tabs {
     white-space: nowrap;
     border: none;
     margin-right: 1rem;
+}
+
+#sidebar {
+    background-color: var(--color-card);
+    border-right: 1px solid var(--color-background);
+    grid-area: sidebar;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    grid-area: sidebar;
+    background-color: var(--color-card);
+    border-right: 1px solid var(--color-background);
+    overflow-y: auto;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    width: 90%;
+    height: auto;
+    font-size: 1rem;
+    border-radius: 4px;
+    background-color: var(--color-card);
+}
+
+.sidebar-item > span {
+    font-weight: 300;
+    pointer-events: none;
+}
+
+.sidebar-item:hover {
+    background-color: var(--color-background);
+}
+
+.sidebar-item:active {
+    background-color: var(--color-background);
+}
+
+#file-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0.2rem;
+    gap: 0.5rem;
+    height: 2rem;
+    background-color: var(--color-card);
+    border-bottom: 1px solid var(--color-background);
+    grid-area: file-controls;
+    padding-left: 0;
+}
+
+.file-control-btn {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.1s ease;
+}
+
+.file-control-btn:hover {
+    background-color: var(--color-background);
+}
+
+.file-control-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.file-control-btn:active {
+    background-color: var(--color-background);
+    transform: scale(0.95);
+}
+
+.file-control-btn svg {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+#file-controls > :first-child {
+    margin-left: 0.5rem;
+}
+
+.file-control-separator {
+    height: 100%;
+    background: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.12rem;
+    margin: 0 0.5rem 0 0.5rem;
+}
+
+#file-view {
+    padding: 0.25rem;
+}
+
+.file-row {
+    display: grid;
+    grid-template-columns: 2rem 1fr 150px 200px;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    color: var(--color-subtle-text);
+    min-height: 1.5rem;
+}
+
+.file-row > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 1rem;
+}
+
+.file-row:hover {
+    background-color: var(--color-background);
+}
+
+.file-name {
+    color: var(--color-white);
+    font-family: 'Inter', sans-serif;
+}
+
+.file-icon {
+    transform: translateY(-2px);
+}
+
+#files {
+    position: relative;
+}
+
+#filter-menu, #search-menu {
+    position: fixed;
+    background-color: var(--color-background);
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.75rem;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    display: none;
+    top: 7rem;
+}
+
+#filter-menu {
+    left: 31rem;
+    min-width: 220px;
+}
+
+#search-menu {
+    left: 33rem;
+    min-width: 280px;
+}
+
+#filter-menu.visible, #search-menu.visible {
+    display: block;
+}
+
+#file-type-select {
+    margin-top: 0.5rem;
+}
+
+#type-sort:hover {
+    background-color: var(--color-background);
+}
+
+.sort-option {
+    padding: 0.5rem;
+    margin: 0.25rem 0;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background-color 0.1s ease;
+    font-size: 0.95rem;
+    color: var(--color-white);
+}
+
+.sort-option:hover {
+    background-color: var(--color-card);
+}
+
+.sort-option:active, .sort-option.selected {
+    background-color: var(--color-primary);
+    color: var(--color-white);
+}
+
+#filter-menu select, #search-menu input {
+    background-color: var(--color-card);
+    color: var(--color-white);
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 0.4rem;
+    font-size: 0.9rem;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+#filter-menu select:focus, #search-menu input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    background-color: var(--color-dark-gray);
+}
+
+#filter-menu option {
+    background-color: var(--color-card);
+    color: var(--color-white);
+}
+
+.filter-other {
+    margin-top: 0.5rem;
+    width: 100%;
+}
+
+.filter-other input {
+    background-color: var(--color-card);
+    color: var(--color-white);
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 0.4rem;
+    font-size: 0.9rem;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+.filter-other input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    background-color: var(--color-dark-gray);
+}
+
+.file-row.selected {
+    background-color: var(--color-primary);
+    color: var(--color-white);
+}
+
+.file-row.selected .file-size, .file-row.selected .file-date {
+    color: var(--color-white);
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.modal-content {
+    background-color: var(--color-card);
+    padding: 1.5rem;
+    border-radius: 8px;
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.modal-content > h2 {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+}
+
+.modal-content > input {
+    width: 90%;
+    padding: 0.5rem;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background-color: var(--color-background);
+    color: var(--color-white);
+    font-family: 'Inter', sans-serif;
+}
+
+.modal-content > input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    background-color: var(--color-dark-gray);
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.modal-buttons > button {
+    flex: 1;
+    padding: 0.5rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    font-family: 'Inter', sans-serif;
+    color: var(--color-white);
+}
+
+#cancel-new-folder {
+    background-color: var(--color-gentle-red);
+}
+
+#confirm-new-folder {
+    background-color: var(--color-primary);
+}
+
+@media screen and (max-width: 768px) {
+
+    .file-row {
+        grid-template-columns: 2rem 1fr 150px;
+    }
+
+    .file-row > span:nth-child(4) {
+        display: none;
+    }
+}
+
+/* Modals */
+.modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background-color: var(--color-background);
+    padding: 1.5rem;
+    border-radius: 6px;
+    border: 1px solid #444;
+    width: 300px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.modal-content h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 500;
+}
+
+.modal-content input {
+    background-color: var(--color-card);
+    color: var(--color-white);
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.5rem;
+    font-size: 1rem;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.modal-content input:focus {
+    border-color: var(--color-primary);
+    background-color: var(--color-dark-gray);
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.modal-buttons button {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    border: 1px solid #444;
+    background-color: var(--color-card);
+    color: var(--color-white);
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.1s ease;
+}
+
+.modal-buttons button:hover {
+    background-color: var(--color-dark-gray);
+}
+
+.modal-buttons button.primary {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary-dark);
+}
+
+.modal-buttons button.primary:hover {
+    background-color: var(--color-primary-dark);
+}
+
+.modal-buttons button.icon-btn {
+    padding: 0.25rem 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-buttons button.icon-btn svg {
+    width: 1.2rem;
+    height: 1.2rem;
 }

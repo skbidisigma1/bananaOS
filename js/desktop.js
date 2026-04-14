@@ -55,15 +55,19 @@ function saveWindowSizes(win) {
 
 // Helper function to restore window sizes
 function restoreWindowSizes(win) {
-    win.style.width = win.dataset.restoreWidth || '600px';
-    win.style.height = win.dataset.restoreHeight || '400px';
-    win.style.left = win.dataset.restoreLeft || '0px';
-    win.style.top = win.dataset.restoreTop || '0px';
+    const defaultWidth = Math.min(800, window.innerWidth - 40);
+    const defaultHeight = Math.min(500, window.innerHeight - 80);
+    win.style.width = win.dataset.restoreWidth || `${defaultWidth}px`;
+    win.style.height = win.dataset.restoreHeight || `${defaultHeight}px`;
+    win.style.left = win.dataset.restoreLeft || '50px';
+    win.style.top = win.dataset.restoreTop || '50px';
 }
 
 function restoreWindowDimensions(win) {
-    win.style.width = win.dataset.restoreWidth || '600px';
-    win.style.height = win.dataset.restoreHeight || '400px';
+    const defaultWidth = Math.min(800, window.innerWidth - 40);
+    const defaultHeight = Math.min(500, window.innerHeight - 80);
+    win.style.width = win.dataset.restoreWidth || `${defaultWidth}px`;
+    win.style.height = win.dataset.restoreHeight || `${defaultHeight}px`;
 }
 
 
@@ -153,6 +157,7 @@ document.addEventListener('mouseup', () => {
     isResizing = false;
     currentResizer = null;
     potentialDragIcon = null;
+    document.querySelectorAll('.window-content iframe').forEach(iframe => iframe.style.pointerEvents = 'auto');
 });
 
 document.addEventListener('click', (e) => {
@@ -196,6 +201,7 @@ getWindows().forEach(win => {
 
         getWindows().forEach(w => w.style.zIndex = "500");
         win.style.zIndex = "1000";
+        document.querySelectorAll('.window-content iframe').forEach(iframe => iframe.style.pointerEvents = 'none');
     }
 
     // Enable resizing
@@ -208,6 +214,7 @@ getWindows().forEach(win => {
             activeWindow = win;
             getWindows().forEach(w => w.style.zIndex = "500");
             win.style.zIndex = "1000";
+            document.querySelectorAll('.window-content iframe').forEach(iframe => iframe.style.pointerEvents = 'none');
         });
     });
 });
@@ -457,15 +464,26 @@ function openApp(appId) {
         return;
     }
 
+    const startWidth = Math.min(800, window.innerWidth - 40);
+    const startHeight = Math.min(500, window.innerHeight - 80);
+    const startLeft = Math.max(0, Math.min(50, window.innerWidth - startWidth));
+    const startTop = Math.max(0, Math.min(50, window.innerHeight - startHeight));
+
     const win = document.createElement('div');
     win.className = 'window';
     win.dataset.appId = app.id;
-    win.style.width = '600px';
-    win.style.height = '400px';
-    win.style.left = '50px';
-    win.style.top = '50px';
+    win.style.width = `${startWidth}px`;
+    win.style.height = `${startHeight}px`;
+    win.style.left = `${startLeft}px`;
+    win.style.top = `${startTop}px`;
     win.style.zIndex = "1000";
     getWindows().forEach(w => w.style.zIndex = "500");
+    
+    // Save these initial dimensions as restore sizes
+    win.dataset.restoreWidth = win.style.width;
+    win.dataset.restoreHeight = win.style.height;
+    win.dataset.restoreLeft = win.style.left;
+    win.dataset.restoreTop = win.style.top;
 
     // HTML for resizers and window
     // This is safe right? Prolly
@@ -521,6 +539,7 @@ function initWindow(win) {
         isResizing = false;
         getWindows().forEach(w => w.style.zIndex = "500");
         win.style.zIndex = "1000";
+        document.querySelectorAll('.window-content iframe').forEach(iframe => iframe.style.pointerEvents = 'none');
     }
 
     const resizers = win.querySelectorAll('.resizer');
@@ -532,6 +551,7 @@ function initWindow(win) {
             activeWindow = win;
             getWindows().forEach(w => w.style.zIndex = "500");
             win.style.zIndex = "1000";
+            document.querySelectorAll('.window-content iframe').forEach(iframe => iframe.style.pointerEvents = 'none');
         });
     });
 
