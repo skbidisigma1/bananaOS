@@ -24,12 +24,13 @@ html, body, main {
     user-select: none;
     display: grid;
     grid-template-columns: 180px 1fr;
-    grid-template-rows: auto auto auto 1fr;
+    grid-template-rows: auto auto auto 1fr auto;
     grid-template-areas:
         "tabs tabs"
         "path-bar path-bar"
         "sidebar file-controls"
-        "sidebar file-view";
+        "sidebar file-view"
+        "sidebar picker-footer";
     height: 100%;
     width: 100vw;
 }
@@ -273,6 +274,7 @@ section#tabs {
     padding: 0.25rem;
     overflow-y: auto;
     height: 100%;
+    scrollbar-color: var(--color-subtle-text) var(--color-card);
 }
 
 .file-row {
@@ -596,4 +598,68 @@ section#tabs {
 .modal-buttons button.icon-btn svg {
     width: 1.2rem;
     height: 1.2rem;
+}
+
+#picker-footer {
+    grid-area: picker-footer;
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    background: var(--color-card);
+    border-top: 1px solid var(--color-background);
+    gap: 10px;
+}
+
+#picker-footer.hidden {
+    display: none !important;
+}
+
+.picker-controls {
+    flex: 1;
+    margin-right: 1rem;
+}
+
+#picker-cancel {
+    background-color: var(--color-gentle-red);
+    border: none;
+    color: var(--color-white);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: background-color 0.1s ease;
+}
+
+#picker-cancel:hover {
+    background-color: var(--color-gentle-red-dark);
+}
+
+#picker-select {
+    background-color: var(--color-primary);
+    border: none;
+    color: var(--color-white);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: background-color 0.1s ease;
+}
+
+#picker-select:hover {
+    background-color: var(--color-primary-dark);
+}
+
+#picker-filename { 
+    width: 100%;
+    height: 1.2rem;
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid var(--color-background);
+    background: var(--color-background);
+    color: var(--color-white);
+}
+
+.picker-buttons {
+    display: flex;
+    gap: 10px;
 }

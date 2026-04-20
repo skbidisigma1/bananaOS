@@ -1,7 +1,13 @@
+// TODO fix: When navigating to a file path that doesn't exist in the app, it creates that directory instead of telling you it's an invalid path
+
 import { db, readDir, resolvePath, mkdir, writeFile, initFS } from '../../js/db.js';
 import { contextMenu } from '../../js/rightClick.js';
 
 // App state
+const urlParams = new URLSearchParams(window.location.search);
+const isPickerMode = urlParams.get('mode') === 'picker';
+const pickerDefaultPath = urlParams.get('defaultPath') || '';
+
 let tabsData = new Map();
 let activeTabId = null;
 
@@ -34,6 +40,12 @@ const searchMenu = document.getElementById('search-menu');
 const searchInput = document.getElementById('search-input');
 const tabs = document.getElementById('tabs');
 
+// Picker DOM
+const pickerFooter = document.getElementById('picker-footer');
+const pickerFilename = document.getElementById('picker-filename');
+const pickerCancel = document.getElementById('picker-cancel');
+const pickerSelect = document.getElementById('picker-select');
+
 async function getDefaultPath() {
     if (await resolvePath('/home/user/Downloads')) return '/home/user/Downloads';
     if (await resolvePath('/home/user')) return '/home/user';
@@ -58,8 +70,39 @@ function createTab(path = '/home/user/Downloads') {
 // Initialize app
 async function init() {
     await initFS();
-    const startPath = await getDefaultPath();
+    const startPath = pickerDefaultPath || await getDefaultPath();
     
+    // Setup picker UI if needed
+    if (isPickerMode) {
+        pickerFooter.classList.remove('hidden');
+        pickerFilename.value = pickerDefaultPath || '';
+        
+        pickerCancel.addEventListener('click', () => {
+            window.parent.postMessage({ type: 'FILE_PICKED', path: null }, '*');
+            window.parent.postMessage({ type: 'CLOSE_WINDOW', appId: 'files' }, '*');
+        });
+        
+        pickerSelect.addEventListener('click', async () => {
+            let finalPath = pickerFilename.value;
+            if (!finalPath.startsWith('/')) {
+                finalPath = getActiveTab().currentPath === '/' 
+                    ? '/' + finalPath 
+                    : getActiveTab().currentPath + '/' + finalPath;
+            }
+            window.parent.postMessage({ type: 'FILE_PICKED', path: finalPath }, '*');
+            window.parent.postMessage({ type: 'CLOSE_WINDOW', appId: 'files' }, '*');
+        });
+        
+        tabs.style.display = 'none';
+        document.getElementById('new-folder').style.display = 'none';
+        document.getElementById('new-file').style.display = 'none';
+        document.getElementById('cut').style.display = 'none';
+        document.getElementById('copy').style.display = 'none';
+        document.getElementById('paste').style.display = 'none';
+        document.getElementById('delete').style.display = 'none';
+        document.querySelectorAll('.file-control-separator').forEach(el => el.style.display = 'none');
+    }
+
     const initialTabId = createTab(startPath);
     activeTabId = initialTabId;
     
@@ -393,7 +436,6 @@ function setupEventListeners() {
             const contentConfig = { size: file.size };
             const id = await writeFile(getActiveTab().currentNode, file.name, contentConfig, file.type || 'application/octet-stream');
             const snapshot = await db.fs_nodes.get(id);
-            // Reading exact blob for upload data isn't needed right here, but saving it accurately is.
             pushHistoryAction({ type: 'create', fileIds: [id], nodesSnapshot: [{...snapshot, data: contentConfig}] });
             await renderFileView();
             document.getElementById('new-file-modal').classList.add('hidden');
@@ -444,7 +486,7 @@ function applyFilters() {
         return match;
     });
     
-    // reset virtual scroll state
+    // Reset virtual scroll state
     getActiveTab().renderedCount = 0;
     fileView.innerHTML = '';
     if (getActiveTab().filteredFiles.length === 0) {
@@ -518,11 +560,31 @@ function renderNextChunk() {
             }
             tab.lastSelectedIndex = currentIndex;
             updateToolbarState();
+            
+            // Picker mode update
+            if (isPickerMode && tab.selectedFiles.has(file.id)) {
+                const fullPath = `${tab.currentPath === '/' ? '' : tab.currentPath}/${file.name}`;
+                pickerFilename.value = fullPath;
+            }
         });
         
         row.addEventListener('dblclick', async () => {
-            if (file.type === 'dir') {
-                await navigateTo(`${tab.currentPath === '/' ? '' : tab.currentPath}/${file.name}`);
+            const isDir = file.type === 'dir';
+            const fullPath = `${tab.currentPath === '/' ? '' : tab.currentPath}/${file.name}`;
+            
+            if (isDir) {
+                await navigateTo(fullPath);
+                if (isPickerMode) pickerFilename.value = fullPath;
+            } else {
+                if (isPickerMode) {
+                    pickerFilename.value = fullPath;
+                    pickerSelect.click();
+                    return;
+                }
+                
+                if (window.parent && window.parent.openApp) {
+                    window.parent.openApp('text-editor', { file: fullPath });
+                }
             }
         });
         
@@ -1027,6 +1089,11 @@ async function handleOpenFile() {
     if (file && file.type === 'dir') {
         const pathSuffix = getActiveTab().currentPath === '/' ? '' : getActiveTab().currentPath;
         await navigateTo(`${pathSuffix}/${file.name}`);
+    } else if (file && file.type === 'file') {
+        const pathSuffix = getActiveTab().currentPath === '/' ? '' : getActiveTab().currentPath;
+        if (window.parent && window.parent.openApp) {
+            window.parent.openApp('text-editor', { file: `${pathSuffix}/${file.name}` });
+        }
     }
 }
 
@@ -1120,16 +1187,20 @@ function updateTabsUI() {
 
 setTimeout(updateTabsUI, 50);
 
-function getFileIcon(file) {
+function getFileIcon(file) { // I don't like this system so TODO: add custom svg icons
     if (file.type === 'dir') return '📁';
     if (!file.name.includes('.')) return '❓';
     const ext = file.name.split('.').pop().toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'svg'].includes(ext)) return '🖼️';
-    if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'md'].includes(ext)) return '📄';
     if (['mp4', 'webm', 'mkv', 'avi', 'mov'].includes(ext)) return '▶️';
     if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '📦';
     if (['mp3', 'wav', 'ogg', 'flac'].includes(ext)) return '🎧';
-    return '❓';
+    if (['c', 'cpp', 'h', 'hpp'].includes(ext)) return ' C';
+    if (['cs', 'csx'].includes(ext)) return 'C#';
+    if (['py'].includes(ext)) return '🐍';
+    if (['js', 'jsx'].includes(ext)) return 'JS';
+    if (['ts', 'tsx'].includes(ext)) return 'TS';
+    return '📄';
 }
 
 // Context menus
@@ -1164,6 +1235,16 @@ contextMenu.add('.file-row', (target) => {
     }
 
     return [
+        { label: 'Open', action: () => handleOpenFile() },
+        { label: 'Open with Text Editor', action: () => {
+            const fileName = fileRow.querySelector('.file-name')?.textContent;
+            if (fileName && window.parent && window.parent.openApp) {
+                const tab = getActiveTab();
+                const fullPath = `${tab.currentPath === '/' ? '' : tab.currentPath}/${fileName}`;
+                window.parent.openApp('text-editor', { file: fullPath });
+            }
+        } },
+        { type: 'separator' },
         { label: 'Cut', action: () => handleCut() },
         { label: 'Copy', action: () => handleCopy() },
         { type: 'separator' },

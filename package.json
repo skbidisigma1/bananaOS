@@ -4,6 +4,8 @@
   "description": "bananaOS is a work-in-progress web-based operating system designed to create both a fun and functional OS experience fully in the browser.",
   "main": "index.js",
   "dependencies": {
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/lang-cpp": "^6.0.3",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.11",
     "@codemirror/lang-javascript": "^6.2.5",

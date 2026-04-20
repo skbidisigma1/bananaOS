@@ -446,13 +446,37 @@ fetch('./data/apps.json')
 
 window.addEventListener('message', (e) => {
     if (e.data && e.data.type === 'CLOSE_WINDOW') {
-        const win = document.querySelector(`.window[data-app-id="${e.data.appId}"]`);
-        if (win) win.remove();
+        const frames = document.querySelectorAll('iframe');
+        let matched = false;
+        frames.forEach(f => {
+            if (f.contentWindow === e.source) {
+                f.closest('.window').remove();
+                matched = true;
+            }
+        });
+        if (!matched && e.data.appId) {
+            const win = document.querySelector(`.window[data-app-id="${e.data.appId}"]`);
+            if (win) win.remove();
+        }
+    }
+    if (e.data && e.data.type === 'FILE_PICKED') {
+        const frames = document.querySelectorAll('iframe');
+        frames.forEach(f => {
+            if (f.contentWindow !== e.source) {
+                f.contentWindow.postMessage(e.data, '*');
+            }
+        });
     }
 });
 
-function openApp(appId) {
-    const existingWin = document.querySelector(`.window[data-app-id="${appId}"]`);
+function openApp(appId, queryParams = {}) {
+    // If the same app is open without query parameters vs with, handle differently?
+    // Let's create a unique window ID if it's opening a specific file, or just use appId
+    const queryString = new URLSearchParams(queryParams).toString();
+    const queryAppend = queryString ? `?${queryString}` : '';
+    const instanceId = queryString ? `${appId}-${queryString}` : appId;
+
+    const existingWin = document.querySelector(`.window[data-instance-id="${instanceId}"]`);
     if (existingWin) {
         getWindows().forEach(w => w.style.zIndex = "500");
         existingWin.style.zIndex = "1000";
@@ -465,14 +489,18 @@ function openApp(appId) {
         return;
     }
 
+    const currentWindowsCount = getWindows().length;
+    const offset = (currentWindowsCount % 10) * 30; // Cascade slightly down and right
+
     const startWidth = Math.min(800, window.innerWidth - 40);
     const startHeight = Math.min(500, window.innerHeight - 80);
-    const startLeft = Math.max(0, Math.min(50, window.innerWidth - startWidth));
-    const startTop = Math.max(0, Math.min(50, window.innerHeight - startHeight));
+    const startLeft = Math.max(0, Math.min(50 + offset, window.innerWidth - startWidth));
+    const startTop = Math.max(0, Math.min(50 + offset, window.innerHeight - startHeight));
 
     const win = document.createElement('div');
     win.className = 'window';
     win.dataset.appId = app.id;
+    win.dataset.instanceId = instanceId;
     win.style.width = `${startWidth}px`;
     win.style.height = `${startHeight}px`;
     win.style.left = `${startLeft}px`;
@@ -502,10 +530,16 @@ function openApp(appId) {
         `;
     }
 
+    // Set iframe title conditionally based on file open
+    let windowTitle = app.name;
+    if (queryParams.file) {
+        windowTitle += ` - ${queryParams.file.split('/').pop()}`;
+    }
+
     win.innerHTML = `
         ${resizersHtml}
         <div class="window-header">
-            <span class="window-title">${app.name}</span>
+            <span class="window-title">${windowTitle}</span>
             <div class="window-operations">
                 <button class="window-minimize"></button>
                 <button class="window-fullscreen">
@@ -516,13 +550,16 @@ function openApp(appId) {
             </div>
         </div>
         <div class="window-content" style="padding: 0; overflow: hidden;">
-            <iframe src="${app.path}" style="width: 100%; height: 100%; border: none; border-bottom-left-radius: 0.5rem; border-bottom-right-radius: 0.5rem;"></iframe>
+            <iframe src="${app.path}${queryAppend}" style="width: 100%; height: 100%; border: none; border-bottom-left-radius: 0.5rem; border-bottom-right-radius: 0.5rem;"></iframe>
         </div>
     `;
 
     document.getElementById('window-container').appendChild(win);
     initWindow(win);
 }
+
+// Expose openApp for apps starting from within iframes
+window.openApp = openApp;
 
 // Ensure functionality is attached dynamically to newly created windows
 function initWindow(win) {

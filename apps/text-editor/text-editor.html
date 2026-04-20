@@ -20,6 +20,7 @@
                     <div class="dropdown-menu-item">New</div>
                     <div class="dropdown-menu-item">Open...</div>
                     <div class="dropdown-menu-item">Save</div>
+                    <div class="dropdown-menu-item">Save As...</div>
                     <div class="dropdown-menu-separator"></div>
                     <div class="dropdown-menu-item">Exit</div>
                 </div>
@@ -55,6 +56,17 @@
             <span id="words">0 words</span>
             <span id="file-type">Plain Text</span>
         </footer>
+
+        <div id="discard-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Unsaved Changes</h2>
+                <p id="discard-message">You have unsaved changes. Are you sure you want to proceed and lose them?</p>
+                <div class="modal-buttons">
+                    <button class="primary" id="discard-confirm">Discard</button>
+                    <button id="discard-cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
 
     </body>
 </html>
