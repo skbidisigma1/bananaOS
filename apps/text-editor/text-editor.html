@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Text Editor - bananaOS</title>
+        <meta name="description" content="Text Editor app for bananaOS.">
+        <meta name="robots" content="noindex">
+        <link rel="icon" href="../../favicon.ico" type="image/x-icon">
+        <link rel="stylesheet" href="../../styles/global.css">
+        <link rel="stylesheet" href="./text-editor.css">
+        <script type="module" src="./text-editor.js"></script>
+    </head>
+
+    <body class="window-content">
+        <header id="top-bar">
+            <div class="top-bar-button" id="menu-file">
+                <span class="top-bar-text">File</span>
+                <div class="dropdown-menu hidden" id="dropdown-file">
+                    <div class="dropdown-menu-item">New</div>
+                    <div class="dropdown-menu-item">Open...</div>
+                    <div class="dropdown-menu-item">Save</div>
+                    <div class="dropdown-menu-separator"></div>
+                    <div class="dropdown-menu-item">Exit</div>
+                </div>
+            </div>
+            <div class="top-bar-button" id="menu-edit">
+                <span class="top-bar-text">Edit</span>
+                <div class="dropdown-menu hidden" id="dropdown-edit">
+                    <div class="dropdown-menu-item">Undo</div>
+                    <div class="dropdown-menu-item">Redo</div>
+                    <div class="dropdown-menu-separator"></div>
+                    <div class="dropdown-menu-item">Cut</div>
+                    <div class="dropdown-menu-item">Copy</div>
+                    <div class="dropdown-menu-item">Paste</div>
+                </div>
+            </div>
+            <div class="top-bar-button" id="menu-view">
+                <span class="top-bar-text">View</span>
+                <div class="dropdown-menu hidden" id="dropdown-view">
+                    <div class="dropdown-menu-item">Word Wrap</div>
+                    <div class="dropdown-menu-item">Zoom In</div>
+                    <div class="dropdown-menu-item">Zoom Out</div>
+                </div>
+            </div>
+        </header>
+
+        <main id="editor">
+            <div id="editor-container" autofocus></div>
+        </main>
+
+        <footer id="bottom-bar">
+            <span id="ln-col">Ln 1, Col 1</span>
+            <span id="characters">0 characters</span>
+            <span id="words">0 words</span>
+            <span id="file-type">Plain Text</span>
+        </footer>
+
+    </body>
+</html>
