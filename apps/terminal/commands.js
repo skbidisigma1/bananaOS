@@ -3,7 +3,7 @@ import { db, readDir, mkdir, resolvePath } from "../../js/db.js";
 
 export const commands = {
     help: async (args) => {
-        return args.join(' ') + '\nAvailable commands:\n- help: Show this message\n- echo: Echo an input back to the terminal\n- whoami: Show the current user\n- clear: Clear the terminal history\n- pwd: Print working directory\n- ls: List directory contents\n- cd: Change directory\n- mkdir: Make directory';
+        return args.join(' ') + '\nAvailable commands:\n- help: Show this message\n- echo: Echo an input back to the terminal\n- whoami: Show the current user\n- clear: Clear the terminal history\n- pwd: Print working directory\n- ls: List directory contents\n- cd: Change directory\n- mkdir: Make directory\n- rm: Remove file or directory';
     },
     echo: async (args) => {
         return args.join(' ');
@@ -22,7 +22,7 @@ export const commands = {
         return cwd;
     },
     ls: async (args, { cwd }) => {
-        const path = args[0] || cwd;
+        let path = args[0] ? args[0].replace(/\\/g, '/') : cwd;
         const targetNode = await resolvePath(path, cwd);
         if (!targetNode) return `ls: cannot access '${path}': No such file or directory`;
         if (targetNode.type !== 'dir') return targetNode.name;
@@ -32,7 +32,7 @@ export const commands = {
         return contents.map(node => (node.type === 'dir' ? `[DIR]  ${node.name}` : `${node.name}`)).join('\n');
     },
     cd: async (args, { cwd, setCwd }) => {
-        const path = args[0] || '/home/user';
+        let path = args[0] ? args[0].replace(/\\/g, '/') : '/home/user';
         const targetNode = await resolvePath(path, cwd);
         
         if (!targetNode) return `-bash: cd: ${path}: No such file or directory`;
@@ -58,7 +58,7 @@ export const commands = {
     },
     mkdir: async (args, { cwd }) => {
         if (!args[0]) return 'mkdir: missing operand';
-        const path = args[0];
+        let path = args[0].replace(/\\/g, '/');
         
         // Find parent dir
         const parts = path.split('/');
@@ -66,11 +66,43 @@ export const commands = {
         const parentPath = parts.join('/') || '.';
         
         const parentNode = await resolvePath(parentPath, cwd);
-        if (!parentNode) return `mkdir: cannot create directory '${path}': No such file or directory`;
+        if (!parentNode) {
+            // Because db.js mkdir now intelligently creates nested directories,
+            // we can pass the whole path to cwd node.
+            const cwdNode = await resolvePath(cwd);
+            try {
+                await mkdir(cwdNode.id, path);
+                return '';
+            } catch (err) {
+                return `mkdir: cannot create directory '${path}': ${err.message}`;
+            }
+        }
+        
         if (parentNode.type !== 'dir') return `mkdir: cannot create directory '${path}': Not a directory`;
         
-        // Create directory
-        await mkdir(parentNode.id, dirName);
+        try {
+            await mkdir(parentNode.id, dirName);
+            return '';
+        } catch (err) {
+            return `mkdir: cannot create directory '${path}': ${err.message}`;
+        }
+    },
+    rm: async (args, { cwd }) => {
+        if (!args[0]) return 'rm: missing operand';
+        let path = args[0].replace(/\\/g, '/');
+        
+        const targetNode = await resolvePath(path, cwd);
+        if (!targetNode) return `rm: cannot remove '${path}': No such file or directory`;
+        
+        const homeUser = await resolvePath('/home/user');
+        const protectedDirs = ['Downloads', 'Desktop', 'Pictures', 'Videos', 'Documents'];
+        
+        if (homeUser && targetNode.parentId === homeUser.id && targetNode.type === 'dir' && protectedDirs.includes(targetNode.name)) {
+            return `rm: cannot remove '${path}': Permission denied`;
+        }
+        
+        await db.fs_nodes.delete(targetNode.id);
+        await db.fs_data.where({nodeId: targetNode.id}).delete();
         return '';
     }
 };

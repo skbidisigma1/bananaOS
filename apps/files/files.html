@@ -7,7 +7,7 @@
         <meta name="description" content="Files app for bananaOS.">
         <meta name="robots" content="noindex">
         <link rel="icon" href="../../favicon.ico" type="image/x-icon">
-        <link rel="stylesheet" href="../../styles/fonts.css">
+        <link rel="stylesheet" href="../../styles/global.css">
         <link rel="stylesheet" href="./files.css">
         <script type="module" src="./files.js"></script>
     </head>
@@ -38,10 +38,38 @@
                     <button class="path-button" id="up-button" disabled>
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M205.66,117.66a8,8,0,0,1-11.32,0L136,59.31V216a8,8,0,0,1-16,0V59.31L61.66,117.66a8,8,0,0,1-11.32-11.32l72-72a8,8,0,0,1,11.32,0l72,72A8,8,0,0,1,205.66,117.66Z"></path></svg>
                     </button>
+                    <button class="path-button" id="refresh-button">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M240,56v48a8,8,0,0,1-8,8H184a8,8,0,0,1,0-16H211.4L184.81,71.64l-.25-.24a80,80,0,1,0-1.67,114.78,8,8,0,0,1,11,11.63A95.44,95.44,0,0,1,128,224h-1.32A96,96,0,1,1,195.75,60L224,85.8V56a8,8,0,1,1,16,0Z"></path></svg>
+                    </button>
                 </section>
                 <input id="path-display" value="/home/user/Downloads">
             </section>
-            <section id="sidebar"></section>
+            <section id="sidebar">
+                <div class="sidebar-item">
+                    <span class="sidebar-item-icon">🏠</span>
+                    <span class="sidebar-item-label">Home</span>
+                </div>
+                <div class="sidebar-item">
+                    <span class="sidebar-item-icon">📁</span>
+                    <span class="sidebar-item-label">Downloads</span>
+                </div>
+                <div class="sidebar-item">
+                    <span class="sidebar-item-icon">💻</span>
+                    <span class="sidebar-item-label">Desktop</span>
+                </div>
+                <div class="sidebar-item">
+                    <span class="sidebar-item-icon">📄</span>
+                    <span class="sidebar-item-label">Documents</span>
+                </div>
+                <div class="sidebar-item">
+                    <span class="sidebar-item-icon">🖼️</span>
+                    <span class="sidebar-item-label">Pictures</span>
+                </div>
+                <div class="sidebar-item">
+                    <span class="sidebar-item-icon">🎬</span>
+                    <span class="sidebar-item-label">Videos</span>
+                </div>
+            </section>
             <section id="file-controls">
                 <div class="file-control-btn" id="new-folder" title="New folder">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72ZM92.69,56l16,16H40V56ZM216,200H40V88H216Zm-88-88a8,8,0,0,1,8,8v16h16a8,8,0,0,1,0,16H136v16a8,8,0,0,1-16,0V152H104a8,8,0,0,1,0-16h16V120A8,8,0,0,1,128,112Z"></path></svg>
@@ -101,7 +129,7 @@
                 </div>
             </section>
             <section id="search-menu">
-                <input type="text" placeholder="Search files..." name="search-term">
+                <input id="search-input" type="text" placeholder="Search files..." name="search-term">
             </section>
             <section class="modal hidden" id="new-folder-modal">
                 <div class="modal-content">
@@ -123,6 +151,25 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"></path></svg>
                         </button>
                         <button id="confirm-new-file" class="primary">Create</button>
+                    </div>
+                </div>
+            </section>
+            <section class="modal hidden" id="rename-modal">
+                <div class="modal-content">
+                    <h2>Rename item</h2>
+                    <input type="text" placeholder="New name" name="rename-name">
+                    <div class="modal-buttons">
+                        <button id="cancel-rename">Cancel</button>
+                        <button id="confirm-rename" class="primary">Rename</button>
+                    </div>
+                </div>
+            </section>
+            <section class="modal hidden" id="alert-modal">
+                <div class="modal-content">
+                    <h2 id="alert-title">Notification</h2>
+                    <p id="alert-message"></p>
+                    <div class="modal-buttons">
+                        <button id="alert-ok" class="primary">OK</button>
                     </div>
                 </div>
             </section>

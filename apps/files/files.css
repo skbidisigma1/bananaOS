@@ -1,21 +1,4 @@
 /* Styles for the Files app */
-/* CSS Variables */
-:root {
-    --color-primary: #2B652A;
-    --color-primary-dark: #244f1f;
-    --color-background: #181a1b;
-    --color-card: #242729;
-    --color-white: #fff;
-    --color-black: #000;
-    --color-dark-gray: #131313;
-    --color-gentle-red: #a83b39;
-    --color-gentle-red-dark: #722827;
-    --color-yellow: #ffcc13;
-    --color-yellow-dark: #a17917;
-    --color-theme-font: #BFFF8E;
-    --color-subtle-text: #c5c5c5;
-}
-
 .hidden {
     display: none !important;
 }
@@ -40,7 +23,7 @@ html, body, main {
     -moz-user-select: none;
     user-select: none;
     display: grid;
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: 180px 1fr;
     grid-template-rows: auto auto auto 1fr;
     grid-template-areas:
         "tabs tabs"
@@ -58,7 +41,6 @@ html, body, main {
 section#tabs {
     grid-area: tabs;
     display: flex;
-    gap: 0.5rem;
     width: 100%;
     height: 2rem;
     border: 1px solid var(--color-background);
@@ -79,6 +61,7 @@ section#tabs {
     grid-template-columns: 1.5rem 1fr 1.5rem;
     align-items: center;
     justify-items: center;
+    border-radius: 4px 4px 0 0;
 }
 
 .new-tab {
@@ -92,7 +75,7 @@ section#tabs {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-left: -0.2rem;
+    margin-left: 0.3rem;
 }
 
 .tab:hover {
@@ -199,7 +182,7 @@ section#tabs {
     grid-area: sidebar;
     background-color: var(--color-card);
     border-right: 1px solid var(--color-background);
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .sidebar-item {
@@ -288,6 +271,8 @@ section#tabs {
 
 #file-view {
     padding: 0.25rem;
+    overflow-y: auto;
+    height: 100%;
 }
 
 .file-row {
@@ -346,7 +331,7 @@ section#tabs {
 
 #search-menu {
     left: 33rem;
-    min-width: 280px;
+    min-width: 240px;
 }
 
 #filter-menu.visible, #search-menu.visible {

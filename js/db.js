@@ -16,6 +16,24 @@ export async function isSetupComplete() {
 
 // File creation
 export async function writeFile(parentId, name, content, type = 'text/plain') {
+    // Normalize backslashes to forward slashes
+    name = name.replace(/\\/g, '/');
+    
+    // Automatically create parent directories if path contains slashes
+    if (name.includes('/')) {
+        const parts = name.split('/').filter(p => p !== '');
+        name = parts.pop(); // The actual filename is the last part
+        
+        for (const part of parts) {
+            parentId = await mkdir(parentId, part);
+        }
+    }
+
+    // Invalid characters check
+    if (/[<>:"|?*]/.test(name)) {
+        throw new Error(`Invalid characters in filename: ${name}`);
+    }
+
     return await db.transaction('rw', db.fs_nodes, db.fs_data, async () => {
         const existing = await db.fs_nodes.where({ parentId, name }).first();
         if (existing && existing.type === 'file') {
@@ -37,6 +55,24 @@ export async function readDir(parentId) {
 
 // Make directory
 export async function mkdir(parentId, name) {
+    // Normalize backslashes to forward slashes
+    name = name.replace(/\\/g, '/');
+
+    // Automatically create parent directories if path contains slashes
+    if (name.includes('/')) {
+        const parts = name.split('/').filter(p => p !== '');
+        
+        for (const part of parts) {
+            parentId = await mkdir(parentId, part);
+        }
+        return parentId; // Return the ID of the last created directory
+    }
+
+    // Invalid characters check
+    if (/[<>:"|?*]/.test(name)) {
+        throw new Error(`Invalid characters in directory name: ${name}`);
+    }
+
     const existing = await db.fs_nodes.where({ parentId, name }).first();
     if (existing && existing.type === 'dir') {
         return existing.id; // avoid duplicate paths mapping errors
@@ -71,10 +107,30 @@ export async function resolvePath(path, cwd = '/') {
 
 // Initialize filesystem
 export async function initFS() {
-    const root = await db.fs_nodes.where({ parentId: 0, name: '' }).first();
+    let root = await db.fs_nodes.where({ parentId: 0, name: '' }).first();
     if (!root) {
         const rootId = await db.fs_nodes.add({ parentId: 0, name: '', type: 'dir' });
-        const homeId = await db.fs_nodes.add({ parentId: rootId, name: 'home', type: 'dir' });
-        await db.fs_nodes.add({ parentId: homeId, name: 'user', type: 'dir' });
+        root = { id: rootId };
+    }
+
+    let home = await db.fs_nodes.where({ parentId: root.id, name: 'home' }).first();
+    if (!home) {
+        const homeId = await db.fs_nodes.add({ parentId: root.id, name: 'home', type: 'dir' });
+        home = { id: homeId };
+    }
+
+    let user = await db.fs_nodes.where({ parentId: home.id, name: 'user' }).first();
+    if (!user) {
+        const userId = await db.fs_nodes.add({ parentId: home.id, name: 'user', type: 'dir' });
+        user = { id: userId };
+    }
+
+    // Ensure default user directories exist on every launch
+    const defaultDirs = ['Downloads', 'Desktop', 'Pictures', 'Videos', 'Documents'];
+    for (const dir of defaultDirs) {
+        const existing = await db.fs_nodes.where({ parentId: user.id, name: dir }).first();
+        if (!existing) {
+            await db.fs_nodes.add({ parentId: user.id, name: dir, type: 'dir', modified: Date.now() });
+        }
     }
 }

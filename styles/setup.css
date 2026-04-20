@@ -1,19 +1,4 @@
 /* Styles for the Setup page */
-
-/* CSS Variables */
-:root {
-    --color-primary: #2B652A;
-    --color-primary-dark: #244f1f;
-    --color-background: #181a1b;
-    --color-card: #242729;
-    --color-white: #fff;
-    --color-black: #000;
-    --color-gentle-red: #a83b39;
-    --color-gentle-red-dark: #722827;
-    --color-theme-font: #BFFF8E;
-    --color-subtle-text: #c5c5c5;
-}
-
 body {
     background-color: var(--color-background);
     color: var(--color-white);

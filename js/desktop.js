@@ -1,5 +1,6 @@
 // desktop.js - Way too much stuff
 import { db, isSetupComplete, initFS } from './db.js';
+import { contextMenu } from './rightClick.js';
 
 // Check if setup is complete before loading desktop
 async function checkSetup() {
@@ -586,4 +587,18 @@ document.querySelectorAll('.taskbar-app-icon').forEach(icon => {
         const appId = icon.id;
         openApp(appId);
     });
+});
+
+contextMenu.add('body', (target) => {
+    return [
+        { label: 'Add Shortcut', action: () => {}, disabled: true },
+        { label: 'Display Settings', action: () => {}, disabled: true }
+    ];
+});
+
+contextMenu.add('.desktop-icon', (target) => {
+    return [
+        { label: 'Edit Shortcut', action: () => {}, disabled: true },
+        { label: 'Delete Shortcut', action: () => {}, disabled: true }
+    ];
 });

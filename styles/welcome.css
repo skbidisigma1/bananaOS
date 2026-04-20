@@ -1,16 +1,4 @@
 /* Styles for the Welcome screen */
-
-/* CSS Variables */
-:root {
-    --color-primary: #2B652A;
-    --color-primary-dark: #244f1f;
-    --color-background: #181a1b;
-    --color-card: #242729;
-    --color-white: #fff;
-    --color-black: #000;
-    --color-theme-font: #BFFF8E;
-}
-
 * {
     box-sizing: border-box;
     margin: 0;
