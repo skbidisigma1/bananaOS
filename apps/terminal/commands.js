@@ -70,6 +70,8 @@ export const commands = {
             // Because db.js mkdir now intelligently creates nested directories,
             // we can pass the whole path to cwd node.
             const cwdNode = await resolvePath(cwd);
+            if (!cwdNode) return `mkdir: cannot create directory '${path}': Invalid current working directory`;
+            
             try {
                 await mkdir(cwdNode.id, path);
                 return '';
@@ -101,8 +103,16 @@ export const commands = {
             return `rm: cannot remove '${path}': Permission denied`;
         }
         
-        await db.fs_nodes.delete(targetNode.id);
-        await db.fs_data.where({nodeId: targetNode.id}).delete();
+        async function recursiveRm(nodeId) {
+            const children = await db.fs_nodes.where({ parentId: nodeId }).toArray();
+            for (const child of children) {
+                await recursiveRm(child.id);
+            }
+            await db.fs_nodes.delete(nodeId);
+            await db.fs_data.where({ nodeId }).delete();
+        }
+
+        await recursiveRm(targetNode.id);
         return '';
     }
 };

@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
-  base: './', // Ensures assets are loaded relative to the deployment path
+  base: './',
   build: {
     rollupOptions: {
       input: {

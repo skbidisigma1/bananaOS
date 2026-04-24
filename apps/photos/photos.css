@@ -1,0 +1,148 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.window-content {
+    display: flex;
+    flex-direction: column;
+    background-color: #1e1e1e;
+}
+
+#top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    background-color: var(--color-card);
+    padding: 0.3rem 1rem;
+    user-select: none;
+    -webkit-user-select: none;
+    flex-shrink: 0;
+}
+
+.top-bar-button {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    margin-right: 0.5rem;
+    cursor: pointer;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    position: relative;
+    user-select: none;
+    color: var(--color-white);
+}
+
+.top-bar-button:hover {
+    background-color: var(--color-background);
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: var(--color-card);
+    border: 1px solid var(--color-background);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0;
+    min-width: 150px;
+}
+
+.dropdown-menu-item {
+    padding: 0.5rem 1.5rem;
+    cursor: pointer;
+    color: var(--color-white);
+    font-size: 14px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.dropdown-menu-item:hover {
+    background-color: var(--color-background);
+}
+
+.dropdown-menu-separator {
+    height: 1px;
+    background-color: var(--color-background);
+    margin: 0.25rem 0;
+}
+
+.modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background-color: var(--color-background);
+    padding: 1.5rem;
+    border-radius: 6px;
+    border: 1px solid #444;
+    width: 300px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    color: var(--color-white);
+}
+
+.modal-content h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-family: 'Poppins', sans-serif;
+}
+
+#tui-image-editor-container {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    scrollbar-color: var(--color-subtle-text) transparent;
+}
+
+button.primary {
+    background-color: var(--color-primary);
+    border: none;
+    color: var(--color-white);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+button.primary:hover {
+    background-color: var(--color-primary-dark);
+}
+
+#discard-cancel {
+    background-color: var(--color-gentle-red);
+    border: none;
+    color: var(--color-white);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 0.5rem;
+}

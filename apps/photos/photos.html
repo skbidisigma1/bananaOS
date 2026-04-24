@@ -3,13 +3,25 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Text Editor - bananaOS</title>
-        <meta name="description" content="Text Editor app for bananaOS.">
+        <title>Photos - bananaOS</title>
+        <meta name="description" content="Photos app for bananaOS.">
         <meta name="robots" content="noindex">
         <link rel="icon" href="../../favicon.ico" type="image/x-icon">
         <link rel="stylesheet" href="../../styles/global.css">
-        <link rel="stylesheet" href="./text-editor.css">
-        <script type="module" src="./text-editor.js"></script>
+        
+        <!-- TOAST UI Image Editor Dependencies -->
+        <link type="text/css" href="https://uicdn.toast.com/tui-color-picker/v2.2.6/tui-color-picker.css" rel="stylesheet">
+        <link type="text/css" href="https://uicdn.toast.com/tui-image-editor/latest/tui-image-editor.css" rel="stylesheet">
+        
+        <link rel="stylesheet" href="./photos.css">
+
+        <!-- TOAST UI Image Editor Scripts -->
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.3.1/fabric.min.js"></script>
+        <script type="text/javascript" src="https://uicdn.toast.com/tui.code-snippet/v1.5.0/tui-code-snippet.min.js"></script>
+        <script type="text/javascript" src="https://uicdn.toast.com/tui-color-picker/v2.2.6/tui-color-picker.js"></script>
+        <script type="text/javascript" src="https://uicdn.toast.com/tui-image-editor/latest/tui-image-editor.js"></script>
+
+        <script type="module" src="./photos.js"></script>
     </head>
 
     <body class="window-content">
@@ -17,46 +29,18 @@
             <div class="top-bar-button" id="menu-file">
                 <span class="top-bar-text">File</span>
                 <div class="dropdown-menu hidden" id="dropdown-file">
-                    <div class="dropdown-menu-item">New</div>
-                    <div class="dropdown-menu-item">Open...</div>
-                    <div class="dropdown-menu-item">Save</div>
-                    <div class="dropdown-menu-item">Save As...</div>
+                    <div class="dropdown-menu-item" id="file-new">New Image</div>
+                    <div class="dropdown-menu-item" id="file-open">Open...</div>
+                    <div class="dropdown-menu-item" id="file-save">Save</div>
+                    <div class="dropdown-menu-item" id="file-save-as">Save As...</div>
                     <div class="dropdown-menu-separator"></div>
-                    <div class="dropdown-menu-item">Exit</div>
-                </div>
-            </div>
-            <div class="top-bar-button" id="menu-edit">
-                <span class="top-bar-text">Edit</span>
-                <div class="dropdown-menu hidden" id="dropdown-edit">
-                    <div class="dropdown-menu-item">Undo</div>
-                    <div class="dropdown-menu-item">Redo</div>
-                    <div class="dropdown-menu-separator"></div>
-                    <div class="dropdown-menu-item">Cut</div>
-                    <div class="dropdown-menu-item">Copy</div>
-                    <div class="dropdown-menu-item">Paste</div>
-                </div>
-            </div>
-            <div class="top-bar-button" id="menu-view">
-                <span class="top-bar-text">View</span>
-                <div class="dropdown-menu hidden" id="dropdown-view">
-                    <div class="dropdown-menu-item">Word Wrap</div>
-                    <div class="dropdown-menu-item">Zoom In</div>
-                    <div class="dropdown-menu-item">Zoom Out</div>
+                    <div class="dropdown-menu-item" id="file-exit">Exit</div>
                 </div>
             </div>
         </header>
 
-        <main id="editor">
-            <div id="editor-container" autofocus></div>
-        </main>
-
-        <footer id="bottom-bar">
-            <span id="ln-col">Ln 1, Col 1</span>
-            <span id="characters">0 characters</span>
-            <span id="words">0 words</span>
-            <span id="file-type">Plain Text</span>
-        </footer>
-
+        <div id="tui-image-editor-container"></div>
+        
         <div id="discard-modal" class="modal hidden">
             <div class="modal-content">
                 <h2 id="discard-title">Unsaved Changes</h2>
@@ -89,6 +73,5 @@
                 </div>
             </div>
         </div>
-
     </body>
 </html>

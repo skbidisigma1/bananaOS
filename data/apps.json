@@ -34,6 +34,13 @@
             "icon": "./assets/images/icons/terminal.svg",
             "path": "./apps/terminal/terminal.html",
             "resizable": true
+        },
+        {
+            "id": "photos",
+            "name": "Photos",
+            "icon": "./assets/images/icons/photos.svg",
+            "path": "./apps/photos/photos.html",
+            "resizable": true
         }
     ]
 }

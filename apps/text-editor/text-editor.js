@@ -25,13 +25,15 @@ const wordWrapCompartment = new Compartment();
 let isWordWrap = false;
 
 // Function to update the status bar
-function showModal(message, confirmText = "Discard") {
+function showModal(message, confirmText = "Discard", title = "Confirm") {
     return new Promise(resolve => {
         const modal = document.getElementById('discard-modal');
         const msgEl = document.getElementById('discard-message');
+        const titleEl = document.getElementById('discard-title');
         const confirmBtn = document.getElementById('discard-confirm');
         const cancelBtn = document.getElementById('discard-cancel');
 
+        if(titleEl) titleEl.textContent = title;
         msgEl.textContent = message;
         confirmBtn.textContent = confirmText;
         modal.classList.remove('hidden');
@@ -53,6 +55,72 @@ function showModal(message, confirmText = "Discard") {
 
         confirmBtn.addEventListener('click', onConfirm);
         cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
+function customAlert(message, title = "Notice") {
+    return new Promise(resolve => {
+        const modal = document.getElementById('alert-modal');
+        const msgEl = document.getElementById('alert-message');
+        const titleEl = document.getElementById('alert-title');
+        const okBtn = document.getElementById('alert-ok');
+
+        if(titleEl) titleEl.textContent = title;
+        msgEl.textContent = message;
+        modal.classList.remove('hidden');
+
+        const cleanup = () => {
+            okBtn.removeEventListener('click', onOk);
+            modal.classList.add('hidden');
+        };
+
+        const onOk = () => {
+            cleanup();
+            resolve();
+        };
+
+        okBtn.addEventListener('click', onOk);
+    });
+}
+
+function customPrompt(message, defaultValue = "", title = "Input Required") {
+    return new Promise(resolve => {
+        const modal = document.getElementById('prompt-modal');
+        const msgEl = document.getElementById('prompt-message');
+        const titleEl = document.getElementById('prompt-title');
+        const inputEl = document.getElementById('prompt-input');
+        const confirmBtn = document.getElementById('prompt-confirm');
+        const cancelBtn = document.getElementById('prompt-cancel');
+
+        if(titleEl) titleEl.textContent = title;
+        msgEl.textContent = message;
+        inputEl.value = defaultValue;
+        modal.classList.remove('hidden');
+        inputEl.focus();
+
+        const cleanup = () => {
+            confirmBtn.removeEventListener('click', onConfirm);
+            cancelBtn.removeEventListener('click', onCancel);
+            inputEl.removeEventListener('keydown', onKeyDown);
+            modal.classList.add('hidden');
+        };
+
+        const onConfirm = () => {
+            cleanup();
+            resolve(inputEl.value);
+        };
+        const onCancel = () => {
+            cleanup();
+            resolve(null); // Return null exactly like prompt() on cancel
+        };
+        const onKeyDown = (e) => {
+            if (e.key === 'Enter') onConfirm();
+            if (e.key === 'Escape') onCancel();
+        };
+
+        confirmBtn.addEventListener('click', onConfirm);
+        cancelBtn.addEventListener('click', onCancel);
+        inputEl.addEventListener('keydown', onKeyDown);
     });
 }
 
@@ -145,6 +213,11 @@ if (window.parent) {
 const parent = document.getElementById("editor-container");
 
 async function saveActiveFileAS(view) {
+    if (currentFileType === 'Unsupported') {
+        await customAlert("Cannot save unsupported or binary files.", "Error");
+        return;
+    }
+
     let defaultPath = currentFilePath || '/home/user/Documents/newfile.txt';
     if (currentFilePath) {
         let lastSlash = currentFilePath.lastIndexOf('/');
@@ -159,14 +232,14 @@ async function saveActiveFileAS(view) {
 
     const folderNode = await resolvePath(folderPath);
     if (!folderNode || folderNode.type !== 'dir') {
-        alert("The directory does not exist: " + folderPath);
+        await customAlert("The directory does not exist: " + folderPath, "Error");
         return;
     }
 
     try {
         const existingNode = await resolvePath(path);
         if (existingNode && existingNode.type === 'file') {
-            const overwrite = await showModal("A file with this name already exists. Overwrite?", "Overwrite");
+            const overwrite = await showModal("A file with this name already exists. Overwrite?", "Overwrite", "File Exists");
             if (!overwrite) return;
         }
 
@@ -177,11 +250,16 @@ async function saveActiveFileAS(view) {
         updateStatusBar(view);
         window.history.replaceState({}, '', `${window.location.pathname}?file=${encodeURIComponent(path)}`);
     } catch(err) {
-        alert("Error saving: " + err.message);
+        await customAlert("Error saving: " + err.message, "Error");
     }
 }
 
 async function saveActiveFile(view) {
+    if (currentFileType === 'Unsupported') {
+        await customAlert("Cannot save unsupported or binary files.", "Error");
+        return;
+    }
+
     if (!currentFilePath) {
         // Trigger Save As if there's no file path to save to
         document.querySelector('#dropdown-file .dropdown-menu-item:nth-child(4)').click();
@@ -236,30 +314,36 @@ async function initEditor() {
     ];
 
     if (currentFilePath) {
-        const node = await resolvePath(currentFilePath);
-        if (node && node.type === 'file') {
-            const dataEntry = await db.fs_data.where({ nodeId: node.id }).first();
-            if (dataEntry) {
-                if (dataEntry.data instanceof Blob) {
-                    try {
-                        initialContent = await dataEntry.data.text();
-                    } catch(e) {
+        try {
+            const node = await resolvePath(currentFilePath);
+            if (node && node.type === 'file') {
+                const dataEntry = await db.fs_data.where({ nodeId: node.id }).first();
+                if (dataEntry) {
+                    if (dataEntry.data instanceof Blob) {
+                        try {
+                            initialContent = await dataEntry.data.text();
+                        } catch(e) {
+                             currentFileType = 'Unsupported';
+                        }
+                    } else if (typeof dataEntry.data === 'string') {
+                        initialContent = dataEntry.data;
+                    } else if (dataEntry.data instanceof Uint8Array || dataEntry.data instanceof ArrayBuffer) {
+                        // Try to decode as UTF-8
+                        try {
+                            const decoder = new TextDecoder('utf-8', { fatal: true });
+                            initialContent = decoder.decode(dataEntry.data);
+                        } catch(e) {
+                             currentFileType = 'Unsupported';
+                        }
+                    } else {
                          currentFileType = 'Unsupported';
                     }
-                } else if (typeof dataEntry.data === 'string') {
-                    initialContent = dataEntry.data;
-                } else if (dataEntry.data instanceof Uint8Array || dataEntry.data instanceof ArrayBuffer) {
-                    // Try to decode as UTF-8
-                    try {
-                        const decoder = new TextDecoder('utf-8', { fatal: true });
-                        initialContent = decoder.decode(dataEntry.data);
-                    } catch(e) {
-                         currentFileType = 'Unsupported';
-                    }
-                } else {
-                     currentFileType = 'Unsupported';
                 }
             }
+        } catch(e) {
+            console.error('Error resolving or reading file:', e);
+            await customAlert("Error loading file: " + e.message, "Error");
+            currentFileType = 'Unsupported';
         }
         setWindowTitle(`Text Editor - ${currentFilePath.split('/').pop()}`);
     } else {
@@ -365,7 +449,7 @@ function openFilePicker(defaultPath) {
             if (path && typeof path === 'object') path = path.toString();
             window.parent.openApp('files', { mode: 'picker', defaultPath: path || '' });
         } else {
-            resolve(prompt("Enter the full path of the file:", defaultPath || "/home/user/Documents/file.txt"));
+            customPrompt("Enter the full path of the file:", defaultPath || "/home/user/Documents/file.txt", "Open File").then(resolve);
         }
     });
 }

@@ -36,10 +36,14 @@ export async function writeFile(parentId, name, content, type = 'text/plain') {
 
     return await db.transaction('rw', db.fs_nodes, db.fs_data, async () => {
         const existing = await db.fs_nodes.where({ parentId, name }).first();
-        if (existing && existing.type === 'file') {
-            await db.fs_data.where({ nodeId: existing.id }).modify({ data: content });
-            await db.fs_nodes.update(existing.id, { modified: Date.now(), size: content.size || content.length });
-            return existing.id;
+        if (existing) {
+            if (existing.type === 'file') {
+                await db.fs_data.where({ nodeId: existing.id }).modify({ data: content });
+                await db.fs_nodes.update(existing.id, { modified: Date.now(), size: content.size || content.length });
+                return existing.id;
+            } else if (existing.type === 'dir') {
+                throw new Error(`Cannot write file. A directory with the name '${name}' already exists.`);
+            }
         }
 
         const id = await db.fs_nodes.add({ parentId, name, type: 'file', mime: type, size: content.size || content.length, modified: Date.now() });
@@ -74,8 +78,12 @@ export async function mkdir(parentId, name) {
     }
 
     const existing = await db.fs_nodes.where({ parentId, name }).first();
-    if (existing && existing.type === 'dir') {
-        return existing.id; // avoid duplicate paths mapping errors
+    if (existing) {
+        if (existing.type === 'dir') {
+            return existing.id; // avoid duplicate paths mapping errors
+        } else if (existing.type === 'file') {
+            throw new Error(`Cannot create directory. A file with the name '${name}' already exists.`);
+        }
     }
     return await db.fs_nodes.add({ parentId, name, type: 'dir', modified: Date.now() });
 }

@@ -31,31 +31,29 @@ input.addEventListener('keydown', async (e) => {
 
         // Execute command if it exists
         if (commands[command.toLowerCase()]) {
+            try {
                 const output = await commands[command.toLowerCase()](args, { cwd, setCwd });
                 if (output !== undefined && output !== '') {
                     appendToHistory(output);
                 }
-        } else if (inputValue !== '') {
-                appendToHistory(`Command not found: ${command}`);
+            } catch (error) {
+                appendToHistory(`Error: ${error.message}`);
+                console.error(error);
             }
-            input.value = '';
+        } else if (inputValue !== '') {
+            appendToHistory(`Command not found: ${command}`);
         }
+        input.value = '';
+    }
 });
 
 // Focus input whenever terminal is clicked
 terminalContainer.addEventListener('click', () => {
-    input.focus();
+    // Only focus if user isn't actively selecting text
+    if (!window.getSelection().toString()) {
+        input.focus();
+    }
 });
-
-// Prevent focus loss when clicking outside the terminal
-input.addEventListener('blur', () => {
-    setTimeout(() => {
-        if (!terminalContainer.contains(document.activeElement)) {
-            input.focus();
-        }
-    }, 0);
-});
-
 
 // Helper to append text to history
 function appendToHistory(text) {

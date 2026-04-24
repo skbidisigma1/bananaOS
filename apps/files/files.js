@@ -433,10 +433,9 @@ function setupEventListeners() {
         input.onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            const contentConfig = { size: file.size };
-            const id = await writeFile(getActiveTab().currentNode, file.name, contentConfig, file.type || 'application/octet-stream');
+            const id = await writeFile(getActiveTab().currentNode, file.name, file, file.type || 'application/octet-stream');
             const snapshot = await db.fs_nodes.get(id);
-            pushHistoryAction({ type: 'create', fileIds: [id], nodesSnapshot: [{...snapshot, data: contentConfig}] });
+            pushHistoryAction({ type: 'create', fileIds: [id], nodesSnapshot: [{...snapshot, data: file}] });
             await renderFileView();
             document.getElementById('new-file-modal').classList.add('hidden');
         };
@@ -583,7 +582,13 @@ function renderNextChunk() {
                 }
                 
                 if (window.parent && window.parent.openApp) {
-                    window.parent.openApp('text-editor', { file: fullPath });
+                    const ext = fullPath.split('.').pop().toLowerCase();
+                    const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+                    if (imageExts.includes(ext)) {
+                        window.parent.openApp('photos', { image: fullPath });
+                    } else {
+                        window.parent.openApp('text-editor', { file: fullPath });
+                    }
                 }
             }
         });
@@ -609,15 +614,11 @@ async function navigateTo(path, pushHistory = true) {
     try {
         const node = await resolvePath(path);
         if (!node) {
-            if (path.startsWith('/home/user/')) {
-                let currentId = (await resolvePath('/home/user')).id;
-                const part = path.replace('/home/user/', '');
-                await mkdir(currentId, part);
-            }
+            showAlert(`Path does not exist: ${path}`);
+            return;
         }
         
-        const finalNode = await resolvePath(path);
-        if(!finalNode) return;
+        const finalNode = node;
         
         getActiveTab().currentPath = path;
         getActiveTab().currentNode = finalNode.id;
@@ -1091,8 +1092,15 @@ async function handleOpenFile() {
         await navigateTo(`${pathSuffix}/${file.name}`);
     } else if (file && file.type === 'file') {
         const pathSuffix = getActiveTab().currentPath === '/' ? '' : getActiveTab().currentPath;
+        const fullPath = `${pathSuffix}/${file.name}`;
         if (window.parent && window.parent.openApp) {
-            window.parent.openApp('text-editor', { file: `${pathSuffix}/${file.name}` });
+            const ext = file.name.split('.').pop().toLowerCase();
+            const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+            if (imageExts.includes(ext)) {
+                window.parent.openApp('photos', { image: fullPath });
+            } else {
+                window.parent.openApp('text-editor', { file: fullPath });
+            }
         }
     }
 }

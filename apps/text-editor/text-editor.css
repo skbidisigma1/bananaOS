@@ -206,6 +206,10 @@ html, body {
     word-break: break-word !important;
 }
 
+.cm-editor {
+    scrollbar-color: var(--color-subtle-text) var(--color-card);
+}
+
 #bottom-bar {
     display: flex;
     align-items: center;
