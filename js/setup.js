@@ -1,5 +1,5 @@
 // Database import
-import { db, isSetupComplete, initFS } from './db.js';
+import { db, isSetupComplete, initFS, resolvePath, writeFile } from './db.js';
 
 // Variables
 let currentStep = 1;
@@ -118,6 +118,16 @@ pfpInput.addEventListener('change', () => {
     const file = pfpInput.files[0];
 
     if (file) {
+        const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+
+        if (!allowedTypes.has(file.type)) {
+            pfpInput.value = '';
+            pfpPreview.removeAttribute('src');
+            pfpPreview.style.display = 'none';
+            pfpPreviewBox.classList.add('hidden');
+            return;
+        }
+
         const tempPath = URL.createObjectURL(file); // Create temporary URL for image
 
         pfpPreview.src = tempPath;
@@ -174,6 +184,30 @@ async function saveSettings() {
 
     // Initialize the file system upon completing setup
     await initFS();
+
+    // Create user options config
+    try {
+        const userDir = await resolvePath('/home/user');
+        if (userDir) {
+            const configObj = {
+                theme: theme,
+                username: username,
+                language: navigator.language || 'en-US',
+                region: navigator.language.split('-')[1] || 'US',
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+                accentColor: '#2B652A',
+                wallpaper: 'default.jpg',
+                wallpaperStyle: 'cover'
+            };
+            // Note: Saving PFP base64 in filesystem instead of just IndexedDB can bloat JSON
+            // But we will include it since options.json is supposed to hold configurations
+            configObj.pfp = pfpBase64;
+            
+            await writeFile(userDir.id, 'config/options.json', JSON.stringify(configObj, null, 4));
+        }
+    } catch (e) {
+        console.error('Failed to create user/config/options.json:', e);
+    }
 }
 
 // Helper to convert image to base64 string

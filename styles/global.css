@@ -12,6 +12,8 @@
     --color-gentle-red-dark: #722827;
     --color-yellow: #ffcc13;
     --color-yellow-dark: #a17917;
+    --color-blue: #229bc7;
+    --color-blue-dark: #176e8c;
     --color-theme-font: #BFFF8E;
     --color-subtle-text: #c5c5c5;
     --color-dark-gray: #131313;
@@ -114,4 +116,9 @@
     height: 1px;
     background-color: var(--color-background);
     margin: 0.25rem 0;
+}
+
+/* Hidden class */
+.hidden {
+    display: none !important;
 }

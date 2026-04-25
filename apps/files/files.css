@@ -1,8 +1,4 @@
 /* Styles for the Files app */
-.hidden {
-    display: none !important;
-}
-
 html, body, main {
     margin: 0;
     padding: 0;

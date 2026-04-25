@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Settings - bananaOS</title>
+        <meta name="description" content="Settings app for bananaOS.">
+        <meta name="robots" content="noindex">
+        <link rel="icon" href="../../favicon.ico" type="image/x-icon">
+        <link rel="stylesheet" href="../../styles/global.css">
+        
+        <link type="text/css" href="https://uicdn.toast.com/tui-color-picker/v2.2.6/tui-color-picker.css" rel="stylesheet">
+        <link type="text/css" href="https://uicdn.toast.com/tui-image-editor/latest/tui-image-editor.css" rel="stylesheet">
+        <link rel="stylesheet" href="./settings.css">
+        <script type="module" src="./settings.js"></script>
+    </head>
+
+    <body class="window-content">
+        <main id="settings-app">
+            <section id="settings-title">
+                <h1 data-i18n="settings.home">Home</h1>
+            </section>
+            <section id="settings-content">
+                <section id="settings-sidebar">
+                    <div class="sidebar-element active" data-target="home" data-i18n="settings.home">Home</div>
+                    <div class="sidebar-element" data-target="system" data-i18n="settings.system">System</div>
+                    <div class="sidebar-element" data-target="appearance" data-i18n="settings.appearance">Appearance</div>
+                    <div class="sidebar-element" data-target="apps" data-i18n="settings.apps">Apps</div>
+                    <div class="sidebar-element" data-target="about" data-i18n="settings.about">About</div>
+                </section>
+
+                <section id="section-home" class="settings-options">
+                    <div class="settings-option" data-target="system"> <!-- Acts as navigation -->
+                        <p data-i18n="settings.system">System</p>
+                    </div>
+                    <div class="settings-option" data-target="appearance">
+                        <p data-i18n="settings.appearance">Appearance</p>
+                    </div>
+                    <div class="settings-option" data-target="apps">
+                        <p data-i18n="settings.apps">Apps</p>
+                    </div>
+                    <div class="settings-option" data-target="about">
+                        <p data-i18n="settings.about">About</p>
+                    </div>
+                </section>
+
+                <section id="section-system" class="settings-options hidden"> <!-- System -->
+                    <div class="settings-option" data-modal="language">
+                        <p data-i18n="settings.language">Language</p>
+                    </div>
+                    <div class="settings-option" data-modal="region">
+                        <p data-i18n="settings.region">Region</p>
+                    </div>
+                    <div class="settings-option" data-modal="timezone">
+                        <p data-i18n="settings.timezone">Time Zone</p>
+                    </div>
+                </section>
+
+                <section id="section-appearance" class="settings-options hidden"> <!-- Appearance -->
+                    <div class="settings-option" data-modal="theme">
+                        <p data-i18n="settings.theme">Theme</p>
+                    </div>
+                    <div class="settings-option" data-modal="accent-color">
+                        <p data-i18n="settings.accentColor">Accent Color</p>
+                    </div>
+                    <div class="settings-option" data-modal="wallpaper">
+                        <p data-i18n="settings.wallpaper">Wallpaper</p>
+                    </div>
+                </section>
+
+                <section id="section-apps" class="settings-options hidden"> <!-- Apps -->
+                    <div class="settings-option" data-modal="installed-apps">
+                        <p data-i18n="settings.installedApps">Installed Apps</p>
+                    </div>
+                </section>
+
+                <section id="section-about" class="settings-options hidden"> <!-- About -->
+                    <div class="settings-text">
+                        <p>bananaOS beta release</p>
+                        <p>Contribute, report an issue, or view source at <a href="https://github.com/skbidisigma1/bananaOS" target="_blank">https://github.com/skbidisigma1/bananaOS</a></p>
+                        <p>License: MIT</p>
+                        <p>Copyright © 2026 bananaOS. All rights reserved.</p>
+                    </div>
+                </section>
+
+            </section>
+            
+            <!-- Modals Overlay -->
+            <div id="modal-overlay" class="hidden">
+                
+                <div class="modal hidden" id="modal-language">
+                    <div class="modal-header"><h3 data-i18n="settings.language">Language</h3></div>
+                    <div class="modal-body">
+                        <select id="config-language" class="settings-select">
+                            <option value="en-US">English (US)</option>
+                            <option value="en-GB">English (UK)</option>
+                            <option value="es">Español</option>
+                            <option value="fr">Français</option>
+                            <option value="de">Deutsch</option>
+                            <option value="it">Italiano</option>
+                            <option value="pt">Português</option>
+                            <option value="ru">Русский</option>
+                            <option value="ja">日本語</option>
+                            <option value="zh-CN">中文 (简体)</option>
+                            <option value="ko">한국어</option>
+                            <option value="ar">العربية</option>
+                            <option value="hi">हिन्दी</option>
+                            <option value="tr">Türkçe</option>
+                            <option value="nl">Nederlands</option>
+                            <option value="pl">Polski</option>
+                            <option value="sv">Svenska</option>
+                            <option value="vi">Tiếng Việt</option>
+                            <option value="th">ไทย</option>
+                            <option value="id">Bahasa Indonesia</option>
+                            <option value="fi">Suomi</option>
+                            <option value="da">Dansk</option>
+                            <option value="no">Norsk</option>
+                            <option value="cs">Čeština</option>
+                            <option value="el">Ελληνικά</option>
+                        </select>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-cancel" data-i18n="settings.cancel">Cancel</button>
+                        <button class="btn-apply" data-i18n="settings.apply">Apply</button>
+                    </div>
+                </div>
+
+                <div class="modal hidden" id="modal-region">
+                    <div class="modal-header"><h3 data-i18n="settings.region">Region</h3></div>
+                    <div class="modal-body">
+                        <select id="config-region" class="settings-select"></select>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-cancel" data-i18n="settings.cancel">Cancel</button>
+                        <button class="btn-apply" data-i18n="settings.apply">Apply</button>
+                    </div>
+                </div>
+
+                <div class="modal hidden" id="modal-timezone">
+                    <div class="modal-header"><h3 data-i18n="settings.timezone">Time Zone</h3></div>
+                    <div class="modal-body">
+                        <select id="config-timezone" class="settings-select"></select>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-cancel" data-i18n="settings.cancel">Cancel</button>
+                        <button class="btn-apply" data-i18n="settings.apply">Apply</button>
+                    </div>
+                </div>
+
+                <div class="modal hidden" id="modal-theme">
+                    <div class="modal-header"><h3 data-i18n="settings.theme">Theme</h3></div>
+                    <div class="modal-body">
+                        <select id="config-theme" class="settings-select">
+                            <option value="dark" data-i18n="settings.theme.dark">Dark Theme</option>
+                            <option value="light" data-i18n="settings.theme.light">Light Theme</option>
+                            <option value="default" data-i18n="settings.theme.default">System Default</option>
+                        </select>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-cancel" data-i18n="settings.cancel">Cancel</button>
+                        <button class="btn-apply" data-i18n="settings.apply">Apply</button>
+                    </div>
+                </div>
+
+                <div class="modal hidden" id="modal-accent-color">
+                    <div class="modal-header"><h3 data-i18n="settings.accentColor">Accent Color</h3></div>
+                    <div class="modal-body">
+                        <input type="color" id="config-accent-color" class="settings-color" value="#2B652A">
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-cancel" data-i18n="settings.cancel">Cancel</button>
+                        <button class="btn-apply" data-i18n="settings.apply">Apply</button>
+                    </div>
+                </div>
+
+                <div class="modal hidden" id="modal-wallpaper">
+                    <div class="modal-header"><h3 data-i18n="settings.wallpaper">Wallpaper</h3></div>
+                    <div class="modal-body" style="gap: 1rem;">
+                        <p class="modal-info" data-i18n="settings.info.wallpaper">Select a wallpaper to set as your desktop background.</p>
+                        <select id="config-wallpaper" class="settings-select">
+                            <option value="default.jpg" data-i18n="settings.default">Default</option>
+                            <option value="custom" data-i18n="settings.custom">Custom...</option>
+                        </select>
+                        <div id="wallpaper-custom-upload" class="hidden">
+                            <input type="file" id="config-custom-wallpaper" accept="image/*" style="width: 100%;">
+                        </div>
+                        <select id="config-wallpaper-style" class="settings-select">
+                            <option value="cover" data-i18n="settings.fill">Fill</option>
+                            <option value="contain" data-i18n="settings.fit">Fit</option>
+                            <option value="100% 100%" data-i18n="settings.stretch">Stretch</option>
+                            <option value="auto" data-i18n="settings.center">Center</option>
+                        </select>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-cancel" data-i18n="settings.cancel">Cancel</button>
+                        <button class="btn-apply" data-i18n="settings.apply">Apply</button>
+                    </div>
+                </div>
+
+                <div class="modal hidden" id="modal-installed-apps">
+                    <div class="modal-header"><h3 data-i18n="settings.installedApps">Installed Apps</h3></div>
+                    <div class="modal-body">
+                        <p class="modal-info" data-i18n="settings.info.apps">Installed applications. Click to open.</p>
+                        <ul class="settings-list app-list">
+                            <li data-appid="settings" data-i18n="settings.apps.settings">Settings</li>
+                            <li data-appid="files" data-i18n="settings.apps.files">Files</li>
+                            <li data-appid="terminal" data-i18n="settings.apps.terminal">Terminal</li>
+                            <li data-appid="text-editor" data-i18n="settings.apps.textEditor">Text Editor</li>
+                            <li data-appid="photos" data-i18n="settings.apps.photos">Photos</li>
+                        </ul>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-cancel" data-i18n="settings.close">Close</button>
+                    </div>
+                </div>
+            </div>
+            
+        </main>
+    </body>
+</html>

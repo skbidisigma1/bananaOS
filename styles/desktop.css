@@ -189,6 +189,13 @@ footer {
     border-radius: 0.5rem;
     box-sizing: border-box;
     z-index: 500;
+    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s ease;
+}
+
+.window.minimized {
+    transform: scale(0.6) translateY(40vh);
+    opacity: 0;
+    pointer-events: none;
 }
 
 .window-content {

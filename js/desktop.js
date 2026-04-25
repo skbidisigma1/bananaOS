@@ -1,5 +1,5 @@
 // desktop.js - Way too much stuff
-import { db, isSetupComplete, initFS } from './db.js';
+import { db, isSetupComplete, initFS, resolvePath } from './db.js';
 import { contextMenu } from './rightClick.js';
 
 // Check if setup is complete before loading desktop
@@ -23,11 +23,92 @@ const clockDate = document.getElementById('clock-date');
 const getWindows = () => document.querySelectorAll('.window');
 const container = document.getElementById('window-container');
 
+// Handle custom wallpaper broadcasts
+window.updateWallpaper = async function(wallpaperUrl, style = 'cover') {
+    const mainElement = document.querySelector('main');
+    if (wallpaperUrl.startsWith('fs:')) {
+        const fullPath = wallpaperUrl.replace('fs:', '');
+        const node = await resolvePath(fullPath);
+        if (node) {
+            const fileData = await db.fs_data.where({ nodeId: node.id }).first();
+            if (fileData) {
+                // If it's a blob/File, convert to blob URL, else it might be a base64 string
+                const blob = fileData.data instanceof Blob ? fileData.data : new Blob([fileData.data]);
+                const url = URL.createObjectURL(blob);
+                mainElement.style.backgroundImage = `url('${url}')`;
+            }
+        }
+    } else {
+        mainElement.style.backgroundImage = `url('../assets/images/wallpaper/${wallpaperUrl}')`;
+    }
+    
+    // Apply styling options
+    mainElement.style.backgroundSize = style;
+    mainElement.style.backgroundRepeat = 'no-repeat';
+    if (style === 'auto' || style === 'contain') { // specific adjustments
+        mainElement.style.backgroundPosition = 'center';
+    } else {
+        mainElement.style.backgroundPosition = 'center';
+    }
+};
+
+// On load, apply saved wallpaper preferences
+async function applyUserPreferences() {
+    try {
+        let config = null;
+        try {
+            const configNode = await resolvePath('/home/user/config/options.json');
+            if (configNode) {
+                const fileData = await db.fs_data.where({ nodeId: configNode.id }).first();
+                if (fileData) {
+                    config = JSON.parse(fileData.data);
+                }
+            }
+        } catch (e) {
+            console.warn('Error reading config, using defaults', e);
+        }
+
+        // Wallpaper Fallback logic
+        const wallpaper = config?.wallpaper || 'wallpaper-1.jpg';
+        const wallpaperStyle = config?.wallpaperStyle || 'cover';
+        window.updateWallpaper(wallpaper, wallpaperStyle);
+
+        // Apply visual preferences
+        if (config?.accentColor) {
+            document.documentElement.style.setProperty('--color-primary', config.accentColor);
+        }
+        if (config?.theme) {
+            document.body.className = config?.theme === 'dark' ? 'dark-theme' : config?.theme === 'light' ? 'light-theme' : '';
+        }
+        
+        // Expose timezone for clock
+        window.OS_TIMEZONE = config?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+    } catch(e) {}
+}
+// Ensure it applies once setup/DB is good
+isSetupComplete().then(complete => { if (complete) applyUserPreferences(); });
+
 // Update clock every second
 setInterval(function() {
     const now = new Date();
-    clockTime.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    clockDate.textContent = now.toLocaleDateString('en-US');
+    
+    // Configure timezone if available, and drop leading zeros on hours
+    const timeOptions = { hour: 'numeric', minute: '2-digit' };
+    const dateOptions = {};
+    
+    if (window.OS_TIMEZONE) {
+        try {
+            timeOptions.timeZone = window.OS_TIMEZONE;
+            dateOptions.timeZone = window.OS_TIMEZONE;
+        } catch (e) {
+            // Fallback to local user time if the timezone is invalid in options
+            console.warn('Invalid OS Timezone:', window.OS_TIMEZONE);
+        }
+    }
+
+    clockTime.textContent = now.toLocaleTimeString('en-US', timeOptions);
+    clockDate.textContent = now.toLocaleDateString('en-US', dateOptions);
 }, 1000);
 
 // Variables for dragging and resizing
