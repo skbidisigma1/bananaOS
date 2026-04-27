@@ -83,6 +83,10 @@ footer {
     transform: scale(0.95);
 }
 
+.taskbar-app-icon.minimized-app {
+    background-color: var(--color-background);
+}
+
 .taskbar-status-icon {
     width: 2.5rem;
     height: 2.5rem;
@@ -122,23 +126,19 @@ footer {
 
 /* Desktop Styles */
 #desktop-grid {
-    display: grid;
+    display: block;
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    grid-template-columns: repeat(auto-fill, 60px);
-    grid-template-rows: repeat(auto-fill, 70px);
-    grid-auto-flow: column;
-    gap: 16px;
-    padding: 16px;
     pointer-events: none;
 }
 
 .desktop-icon {
     width: 60px;
     height: 70px;
+    position: absolute;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -165,18 +165,67 @@ footer {
 }
 
 .desktop-icon.selected {
-    background-color: rgba(0, 123, 255, 0.4);
+    background-color: #176e8c80;
+}
+
+.desktop-icon-glyph {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+.desktop-icon-label {
+    display: block;
+    max-width: 58px;
+    margin-top: 0.1rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#minimized-menu {
+    position: absolute;
+    bottom: 4vh;
+    left: 0;
+    background-color: var(--color-card);
+    border-radius: 0.5rem 0.5rem 0 0;
+    opacity: 0.9;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.2rem;
+    z-index: 1000;
+}
+
+.minimized-menu-item {
+    padding: 0.5rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(2px);
+}
+
+.minimized-menu-item:first-child {
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+}
+
+.minimized-menu-item:hover {
+    background-color: var(--color-background);
 }
 
 /* Window Styles */
-
 #window-container {
     position: absolute;
     top: 0;
     left: 0;
     width: 100vw;
     height: 96vh;
-    pointer-events: none;
+    pointer-events: auto;
     overflow: hidden;
 }
 
@@ -312,3 +361,11 @@ footer {
 .resizer.ne { top: -5px; right: -5px; width: 15px; height: 15px; cursor: ne-resize; }
 .resizer.se { bottom: -5px; right: -5px; width: 15px; height: 15px; cursor: se-resize; }
 .resizer.sw { bottom: -5px; left: -5px; width: 15px; height: 15px; cursor: sw-resize; }
+
+#selection-box {
+    position: absolute;
+    border: 1px solid #176e8cd0;
+    background-color: #229bc750;
+    z-index: 1000;
+    pointer-events: none;
+}

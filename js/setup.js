@@ -139,7 +139,6 @@ pfpInput.addEventListener('change', () => {
 
 // Database Operations
 async function saveSettings() {
-    // First convert pfp to base64 string if it exists
     let pfpBase64;
 
     if (pfpInput.files && pfpInput.files.length > 0) {
@@ -199,8 +198,6 @@ async function saveSettings() {
                 wallpaper: 'default.jpg',
                 wallpaperStyle: 'cover'
             };
-            // Note: Saving PFP base64 in filesystem instead of just IndexedDB can bloat JSON
-            // But we will include it since options.json is supposed to hold configurations
             configObj.pfp = pfpBase64;
             
             await writeFile(userDir.id, 'config/options.json', JSON.stringify(configObj, null, 4));

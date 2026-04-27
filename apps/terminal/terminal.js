@@ -13,10 +13,19 @@ const terminalContainer = document.getElementById('terminal');
 let cwd = '/home/user';
 const setCwd = (newCwd) => { cwd = newCwd; updatePrompt(); };
 
+function publishWindowContextTitle(contextTitle) {
+    if (!window.parent) return;
+    window.parent.postMessage({
+        type: 'WINDOW_CONTEXT_TITLE',
+        contextTitle
+    }, '*');
+}
+
 // Set prompt to username on load
 const username = usernameEntry ? (usernameEntry.value || 'user') : 'user';
 function updatePrompt() {
     prompt.textContent = `${username}@bananaOS:${cwd}$ `;
+    publishWindowContextTitle(cwd);
 }
 updatePrompt();
 

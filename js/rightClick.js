@@ -31,12 +31,12 @@ export class ContextMenu {
             }
 
             if (matchedConfig) {
-                e.preventDefault();
-                e.stopPropagation();
                 const items = typeof matchedConfig.itemsResolver === 'function' 
                               ? matchedConfig.itemsResolver(matchedTarget, e) 
                               : matchedConfig.itemsResolver;
                 if (items && items.length > 0) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     this.showMenu(e.clientX, e.clientY, items, matchedTarget);
                 } else {
                     this.hideMenu();

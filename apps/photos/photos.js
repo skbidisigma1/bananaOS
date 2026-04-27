@@ -1,5 +1,13 @@
 import { db, resolvePath, writeFile } from "../../js/db.js";
 
+function publishWindowContextTitle(contextTitle) {
+    if (!window.parent) return;
+    window.parent.postMessage({
+        type: 'WINDOW_CONTEXT_TITLE',
+        contextTitle
+    }, '*');
+}
+
 // Utility Modals
 function showModal(message, confirmText = "Discard", title = "Confirm") {
     return new Promise(resolve => {
@@ -88,6 +96,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentFilePath = null;
     let hasUnsavedChanges = false;
 
+    const updateWindowContextTitle = () => {
+        const contextTitle = currentFilePath
+            ? (currentFilePath.split('/').pop() || 'Photos')
+            : 'Photos';
+        publishWindowContextTitle(contextTitle);
+    };
+
     const urlParams = new URLSearchParams(window.location.search);
     const imageToLoadPath = urlParams.get('image');
     let imageName = urlParams.get('name') || 'Blank';
@@ -147,6 +162,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'BlankImage'
         };
     }
+
+    updateWindowContextTitle();
 
     const imageEditor = new tui.ImageEditor('#tui-image-editor-container', {
         includeUI: includeUIOptions,
@@ -227,7 +244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             currentFilePath = path;
             hasUnsavedChanges = false;
-            window.parent?.desktop?.setWindowTitle?.(`Photos - ${fileName}`);
+            updateWindowContextTitle();
             window.history.replaceState({}, '', `${window.location.pathname}?image=${encodeURIComponent(path)}`);
         } catch(err) {
             await customAlert("Error saving: " + err.message, "Error");

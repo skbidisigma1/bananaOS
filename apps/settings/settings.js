@@ -2,9 +2,21 @@ import { db, resolvePath, writeFile } from '../../js/db.js';
 import * as ct from 'https://cdn.jsdelivr.net/npm/countries-and-timezones@3.3.0/+esm';
 import { i18n } from '../../js/i18n.js';
 
+const params = new URLSearchParams(window.location.search);
+const requestedSection = params.get('section');
+const allowedSections = new Set(['home', 'system', 'appearance', 'apps', 'about']);
+
+function publishWindowContextTitle(contextTitle) {
+    if (!window.parent) return;
+    window.parent.postMessage({
+        type: 'WINDOW_CONTEXT_TITLE',
+        contextTitle
+    }, '*');
+}
+
 class SettingsApp {
     constructor() {
-        this.currentSection = 'home';
+        this.currentSection = allowedSections.has(requestedSection) ? requestedSection : 'home';
         this.config = {};
         this.configPathId = null;
         
@@ -383,9 +395,13 @@ class SettingsApp {
         const activeSidebarItem = Array.from(this.sidebarElements).find(
             el => el.getAttribute('data-target') === this.currentSection
         );
+        let currentSectionTitle = 'Settings';
         if (activeSidebarItem) {
             this.titleElement.textContent = activeSidebarItem.textContent;
+            currentSectionTitle = activeSidebarItem.textContent.trim() || currentSectionTitle;
         }
+
+        publishWindowContextTitle(currentSectionTitle);
 
         // Update sidebar active class
         this.sidebarElements.forEach(element => {

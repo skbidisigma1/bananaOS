@@ -7,6 +7,7 @@ import { contextMenu } from '../../js/rightClick.js';
 const urlParams = new URLSearchParams(window.location.search);
 const isPickerMode = urlParams.get('mode') === 'picker';
 const pickerDefaultPath = urlParams.get('defaultPath') || '';
+const directOpenPath = urlParams.get('path') || '';
 
 let tabsData = new Map();
 let activeTabId = null;
@@ -16,6 +17,25 @@ function getActiveTab() {
 }
 
 let clipboard = { files: [], operation: null };
+
+function publishWindowContextTitle(contextTitle) {
+    if (!window.parent) return;
+    window.parent.postMessage({
+        type: 'WINDOW_CONTEXT_TITLE',
+        contextTitle
+    }, '*');
+}
+
+function getDirectoryLabel(path) {
+    const parts = (path || '').split('/').filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : '/';
+}
+
+function updateWindowContextTitle() {
+    const tab = getActiveTab();
+    if (!tab) return;
+    publishWindowContextTitle(getDirectoryLabel(tab.currentPath));
+}
 
 // DOM Elements
 const fileView = document.getElementById('file-view');
@@ -70,7 +90,7 @@ function createTab(path = '/home/user/Downloads') {
 // Initialize app
 async function init() {
     await initFS();
-    const startPath = pickerDefaultPath || await getDefaultPath();
+    const startPath = pickerDefaultPath || directOpenPath || await getDefaultPath();
     
     // Setup picker UI if needed
     if (isPickerMode) {
@@ -635,6 +655,7 @@ async function navigateTo(path, pushHistory = true) {
         }
         
         pathDisplay.value = getActiveTab().currentPath;
+        updateWindowContextTitle();
         
         const activeTabEl = document.querySelector(`.tab[data-tab-id="${activeTabId}"]`);
         if (activeTabEl) {
@@ -1169,6 +1190,7 @@ async function switchToTab(tabId) {
     const tabState = getActiveTab();
     
     pathDisplay.value = tabState.currentPath;
+    updateWindowContextTitle();
     
     // Sort logic update
     document.querySelectorAll('.sort-option').forEach(opt => {

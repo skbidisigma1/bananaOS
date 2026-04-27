@@ -24,6 +24,27 @@ let hasUnsavedChanges = false;
 const wordWrapCompartment = new Compartment();
 let isWordWrap = false;
 
+function publishWindowContextTitle(contextTitle) {
+    if (!window.parent) return;
+    window.parent.postMessage({
+        type: 'WINDOW_CONTEXT_TITLE',
+        contextTitle
+    }, '*');
+}
+
+function extractTextEditorContext(titleStr) {
+    const fallback = 'Text Editor';
+    if (typeof titleStr !== 'string') return fallback;
+
+    const prefix = 'Text Editor - ';
+    if (titleStr.startsWith(prefix)) {
+        const context = titleStr.slice(prefix.length).trim();
+        return context || fallback;
+    }
+
+    return titleStr.trim() || fallback;
+}
+
 // Function to update the status bar
 function showModal(message, confirmText = "Discard", title = "Confirm") {
     return new Promise(resolve => {
@@ -183,6 +204,8 @@ function setWindowTitle(titleStr) {
             }
         }
     }
+
+    publishWindowContextTitle(extractTextEditorContext(titleStr));
 }
 
 // Intercept window close from title bar if unsaved changes exist
