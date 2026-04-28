@@ -118,6 +118,111 @@
     margin: 0.25rem 0;
 }
 
+/* Desktop Modal styles */
+.desktop-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+}
+
+.desktop-modal.hidden {
+    display: none;
+}
+
+.desktop-modal-content {
+    background-color: var(--color-card);
+    border: 1px solid var(--color-background);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+    padding: 2rem;
+    min-width: 320px;
+    max-width: 500px;
+}
+
+.desktop-modal-content h2 {
+    margin: 0 0 1rem 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-white);
+}
+
+.desktop-modal-message {
+    margin: 0 0 1rem 0;
+    color: var(--color-subtle-text);
+    line-height: 1.5;
+}
+
+.desktop-modal-message.hidden {
+    display: none;
+}
+
+.desktop-modal-field {
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    background-color: var(--color-background);
+    border: 1px solid var(--color-background);
+    border-radius: 4px;
+    color: var(--color-white);
+    font-family: inherit;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.desktop-modal-field:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(43, 101, 42, 0.2);
+}
+
+.desktop-modal-field.hidden {
+    display: none;
+}
+
+.desktop-modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+}
+
+.desktop-modal-actions button {
+    padding: 0.75rem 1.5rem;
+    background-color: var(--color-background);
+    border: 1px solid var(--color-background);
+    border-radius: 4px;
+    color: var(--color-white);
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.desktop-modal-actions button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--color-subtle-text);
+}
+
+.desktop-modal-actions button:active {
+    transform: scale(0.98);
+}
+
+.desktop-modal-actions button.primary {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.desktop-modal-actions button.primary:hover {
+    background-color: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+}
+
 /* Hidden class */
 .hidden {
     display: none !important;

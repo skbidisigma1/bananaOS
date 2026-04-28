@@ -1,5 +1,5 @@
 // desktop.js - Way too much stuff
-import { db, isSetupComplete, initFS, resolvePath, writeFile, readDir, mkdir } from './db.js';
+import { db, isSetupComplete, initFS, resolvePath, writeFile, readDir, mkdir, emitFsEvent } from './db.js';
 import { contextMenu } from './rightClick.js';
 
 // Check if setup is complete before loading desktop
@@ -18,9 +18,17 @@ async function checkSetup() {
 }
 checkSetup();
 
+// Check if battery status API is supported
+let isBatterySupported = false;
+
+if ('getBattery' in navigator) {
+    isBatterySupported = true;
+}
+
 // Element references
 const clockTime = document.getElementById('clock-time');
 const clockDate = document.getElementById('clock-date');
+const batteryStatus = document.getElementById('battery');
 const getWindows = () => document.querySelectorAll('.window');
 const container = document.getElementById('window-container');
 const minimizedMenu = document.getElementById('minimized-menu');
@@ -29,22 +37,205 @@ let minimizedMenuAnchorIcon = null;
 let activeMinimizedMenuAppId = null;
 let appsRegistry = [];
 let desktopDirNode = null;
-let desktopLayout = { positions: {} };
+let desktopLayout = { positions: {}, migratedStaticDesktopIcons: false };
 let desktopSignature = '';
+let desktopWatcherInitialized = false;
 let desktopWatchTimer = null;
 let desktopRefreshInFlight = false;
+let desktopModalState = null;
+let fsEventsChannel = null;
 
 const SHORTCUT_MIME = 'application/x-bananaos-shortcut+json';
 const DESKTOP_LAYOUT_PATH = '/home/user/config/desktop-layout.json';
 const DESKTOP_DIR_PATH = '/home/user/Desktop';
+const FS_EVENTS_CHANNEL_NAME = 'bananaos-fs-events';
+const FS_CHANGED_EVENT_TYPE = 'FS_CHANGED';
 
 if (minimizedMenu) {
     minimizedMenu.innerHTML = '';
 }
 
+function ensureDesktopModal() {
+    if (desktopModalState) return desktopModalState;
+
+    const modal = document.createElement('section');
+    modal.id = 'desktop-modal';
+    modal.className = 'desktop-modal hidden';
+    modal.innerHTML = `
+        <div class="desktop-modal-content">
+            <h2 id="desktop-modal-title"></h2>
+            <p id="desktop-modal-message" class="desktop-modal-message hidden"></p>
+            <input id="desktop-modal-input" class="desktop-modal-field hidden" type="text" autocomplete="off">
+            <select id="desktop-modal-select" class="desktop-modal-field hidden"></select>
+            <div class="desktop-modal-actions">
+                <button id="desktop-modal-cancel" type="button">Cancel</button>
+                <button id="desktop-modal-confirm" type="button" class="primary">OK</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    desktopModalState = {
+        root: modal,
+        title: modal.querySelector('#desktop-modal-title'),
+        message: modal.querySelector('#desktop-modal-message'),
+        input: modal.querySelector('#desktop-modal-input'),
+        select: modal.querySelector('#desktop-modal-select'),
+        cancel: modal.querySelector('#desktop-modal-cancel'),
+        confirm: modal.querySelector('#desktop-modal-confirm'),
+        cleanup: null,
+        resolver: null
+    };
+
+    return desktopModalState;
+}
+
+function closeDesktopModal(result = null) {
+    const modal = ensureDesktopModal();
+    if (modal.cleanup) {
+        modal.cleanup();
+        modal.cleanup = null;
+    }
+
+    modal.root.classList.add('hidden');
+    if (modal.resolver) {
+        const resolve = modal.resolver;
+        modal.resolver = null;
+        resolve(result);
+    }
+}
+
+function openDesktopModal(options = {}) {
+    const modal = ensureDesktopModal();
+    const {
+        title = 'Dialog',
+        message = '',
+        confirmText = 'OK',
+        cancelText = 'Cancel',
+        showCancel = true,
+        inputValue = '',
+        inputPlaceholder = '',
+        selectOptions = null,
+        requireValue = false
+    } = options;
+
+    if (modal.cleanup) {
+        modal.cleanup();
+        modal.cleanup = null;
+    }
+
+    modal.title.textContent = title;
+    modal.message.textContent = message || '';
+    modal.message.classList.toggle('hidden', !message);
+
+    modal.input.classList.add('hidden');
+    modal.input.value = '';
+    modal.input.placeholder = '';
+
+    modal.select.classList.add('hidden');
+    modal.select.innerHTML = '';
+
+    const hasInput = options.mode === 'input';
+    const hasSelect = options.mode === 'select';
+
+    if (hasInput) {
+        modal.input.classList.remove('hidden');
+        modal.input.value = inputValue;
+        modal.input.placeholder = inputPlaceholder;
+    }
+
+    if (hasSelect) {
+        modal.select.classList.remove('hidden');
+        (selectOptions || []).forEach((entry) => {
+            const option = document.createElement('option');
+            option.value = entry.value;
+            option.textContent = entry.label;
+            modal.select.appendChild(option);
+        });
+    }
+
+    modal.cancel.textContent = cancelText;
+    modal.cancel.classList.toggle('hidden', !showCancel);
+    modal.confirm.textContent = confirmText;
+
+    modal.root.classList.remove('hidden');
+
+    return new Promise((resolve) => {
+        modal.resolver = resolve;
+
+        const onCancel = () => closeDesktopModal(null);
+        const onConfirm = () => {
+            if (hasInput) {
+                const value = modal.input.value.trim();
+                if (requireValue && !value) return;
+                closeDesktopModal(value);
+                return;
+            }
+
+            if (hasSelect) {
+                const value = modal.select.value;
+                if (requireValue && !value) return;
+                closeDesktopModal(value);
+                return;
+            }
+
+            closeDesktopModal(true);
+        };
+
+        const onRootClick = (event) => {
+            if (event.target === modal.root && showCancel) {
+                onCancel();
+            }
+        };
+
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape' && showCancel) {
+                event.preventDefault();
+                onCancel();
+            }
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                onConfirm();
+            }
+        };
+
+        modal.cancel.addEventListener('click', onCancel);
+        modal.confirm.addEventListener('click', onConfirm);
+        modal.root.addEventListener('click', onRootClick);
+        document.addEventListener('keydown', onKeyDown);
+
+        modal.cleanup = () => {
+            modal.cancel.removeEventListener('click', onCancel);
+            modal.confirm.removeEventListener('click', onConfirm);
+            modal.root.removeEventListener('click', onRootClick);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+
+        if (hasInput) {
+            modal.input.focus();
+            modal.input.select();
+        } else if (hasSelect) {
+            modal.select.focus();
+        } else {
+            modal.confirm.focus();
+        }
+    });
+}
+
 function showDesktopError(message) {
     console.error(message);
-    window.alert(message);
+    return openDesktopModal({
+        title: 'Error',
+        message,
+        confirmText: 'OK',
+        showCancel: false
+    });
+}
+
+function getShortcutAppIconPath(appId) {
+    const app = appsRegistry.find(entry => entry.id === appId);
+    return app?.icon || null;
 }
 
 function getInstalledAppsForShortcuts() {
@@ -84,7 +275,7 @@ function isTextFileName(name) {
 
 function getDesktopItemGlyph(node, shortcutData = null) {
     if (node.type === 'dir') return '📁';
-    if (shortcutData) return '🔗';
+    if (shortcutData) return null;
     if (isImageFileName(node.name)) return '🖼️';
     return '📄';
 }
@@ -207,28 +398,29 @@ async function loadDesktopLayout() {
     try {
         const node = await resolvePath(DESKTOP_LAYOUT_PATH);
         if (!node) {
-            desktopLayout = { positions: {} };
+            desktopLayout = { positions: {}, migratedStaticDesktopIcons: false };
             return;
         }
 
         const text = await readFileTextFromNode(node);
         if (!text) {
-            desktopLayout = { positions: {} };
+            desktopLayout = { positions: {}, migratedStaticDesktopIcons: false };
             return;
         }
 
         const parsed = JSON.parse(text);
         if (!parsed || typeof parsed !== 'object') {
-            desktopLayout = { positions: {} };
+            desktopLayout = { positions: {}, migratedStaticDesktopIcons: false };
             return;
         }
 
         desktopLayout = {
-            positions: typeof parsed.positions === 'object' && parsed.positions !== null ? parsed.positions : {}
+            positions: typeof parsed.positions === 'object' && parsed.positions !== null ? parsed.positions : {},
+            migratedStaticDesktopIcons: parsed.migratedStaticDesktopIcons === true
         };
     } catch (error) {
         console.warn('Failed to load desktop layout, using defaults:', error);
-        desktopLayout = { positions: {} };
+        desktopLayout = { positions: {}, migratedStaticDesktopIcons: false };
     }
 }
 
@@ -304,7 +496,16 @@ async function renameDesktopNode(nodeId) {
         const node = await db.fs_nodes.get(nodeId);
         if (!node) return;
 
-        const requestedName = window.prompt('Rename item:', node.name);
+        const requestedName = await openDesktopModal({
+            mode: 'input',
+            title: 'Rename Item',
+            message: 'Choose a new name for this item.',
+            inputValue: node.name,
+            inputPlaceholder: 'Item name',
+            confirmText: 'Rename',
+            cancelText: 'Cancel',
+            requireValue: true
+        });
         if (requestedName === null) return;
 
         const trimmed = requestedName.trim();
@@ -324,7 +525,7 @@ async function renameDesktopNode(nodeId) {
         await db.fs_nodes.update(node.id, { name: trimmed, modified: Date.now() });
         await refreshDesktopIcons(true);
     } catch (error) {
-        showDesktopError(`Failed to rename item: ${error.message}`);
+        await showDesktopError(`Failed to rename item: ${error.message}`);
     }
 }
 
@@ -334,6 +535,8 @@ async function deleteNodeRecursive(nodeId) {
         await deleteNodeRecursive(child.id);
     }
 
+    const node = await db.fs_nodes.get(nodeId);
+    emitFsEvent('FILE_DELETED', { parentId: node.parentId, fileName: node.name });
     await db.fs_data.where({ nodeId }).delete();
     await db.fs_nodes.delete(nodeId);
 }
@@ -344,15 +547,21 @@ async function deleteDesktopNode(nodeId) {
         if (!node) return;
 
         const displayName = node.type === 'dir' ? node.name : stripShortcutSuffix(node.name);
-        const confirmed = window.confirm(`Delete '${displayName}'?`);
-        if (!confirmed) return;
+        const confirmed = await openDesktopModal({
+            title: 'Delete Item',
+            message: `Delete '${displayName}'?`,
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            showCancel: true
+        });
+        if (confirmed !== true) return;
 
         await deleteNodeRecursive(node.id);
         delete desktopLayout.positions[getLayoutKeyForNode(node.id)];
         await saveDesktopLayout();
         await refreshDesktopIcons(true);
     } catch (error) {
-        showDesktopError(`Failed to delete item: ${error.message}`);
+        await showDesktopError(`Failed to delete item: ${error.message}`);
     }
 }
 
@@ -360,7 +569,16 @@ async function createDesktopFile() {
     try {
         if (!desktopDirNode) return;
 
-        const requestedName = window.prompt('New file name:', 'New File.txt');
+        const requestedName = await openDesktopModal({
+            mode: 'input',
+            title: 'Create New File',
+            message: 'Enter a file name.',
+            inputValue: 'New File.txt',
+            inputPlaceholder: 'File name',
+            confirmText: 'Create',
+            cancelText: 'Cancel',
+            requireValue: true
+        });
         if (requestedName === null) return;
 
         const trimmed = requestedName.trim();
@@ -374,7 +592,7 @@ async function createDesktopFile() {
         await writeFile(desktopDirNode.id, finalName, '', 'text/plain');
         await refreshDesktopIcons(true);
     } catch (error) {
-        showDesktopError(`Failed to create file: ${error.message}`);
+        await showDesktopError(`Failed to create file: ${error.message}`);
     }
 }
 
@@ -382,7 +600,16 @@ async function createDesktopFolder() {
     try {
         if (!desktopDirNode) return;
 
-        const requestedName = window.prompt('New folder name:', 'New Folder');
+        const requestedName = await openDesktopModal({
+            mode: 'input',
+            title: 'Create New Folder',
+            message: 'Enter a folder name.',
+            inputValue: 'New Folder',
+            inputPlaceholder: 'Folder name',
+            confirmText: 'Create',
+            cancelText: 'Cancel',
+            requireValue: true
+        });
         if (requestedName === null) return;
 
         const trimmed = requestedName.trim();
@@ -396,7 +623,7 @@ async function createDesktopFolder() {
         await mkdir(desktopDirNode.id, finalName);
         await refreshDesktopIcons(true);
     } catch (error) {
-        showDesktopError(`Failed to create folder: ${error.message}`);
+        await showDesktopError(`Failed to create folder: ${error.message}`);
     }
 }
 
@@ -406,20 +633,25 @@ async function createDesktopShortcut() {
 
         const apps = getInstalledAppsForShortcuts();
         if (apps.length === 0) {
-            showDesktopError('No installed apps available for shortcuts.');
+            await showDesktopError('No installed apps available for shortcuts.');
             return;
         }
 
-        const appPrompt = apps.map(app => `${app.id} (${app.name})`).join(', ');
-        const requestedApp = window.prompt(`Enter app id for shortcut:\n${appPrompt}`, apps[0].id);
-        if (requestedApp === null) return;
-
-        const appId = requestedApp.trim();
+        const appId = await openDesktopModal({
+            mode: 'select',
+            title: 'Create New Shortcut',
+            message: 'Select an installed app to create a shortcut for.',
+            selectOptions: apps.map(app => ({ value: app.id, label: app.name })),
+            confirmText: 'Create',
+            cancelText: 'Cancel',
+            requireValue: true
+        });
+        if (appId === null) return;
         if (!appId) return;
 
         const app = apps.find(candidate => candidate.id.toLowerCase() === appId.toLowerCase());
         if (!app) {
-            showDesktopError(`Unknown app id: ${appId}`);
+            await showDesktopError(`Unknown app id: ${appId}`);
             return;
         }
 
@@ -438,7 +670,7 @@ async function createDesktopShortcut() {
 
         await refreshDesktopIcons(true);
     } catch (error) {
-        showDesktopError(`Failed to create shortcut: ${error.message}`);
+        await showDesktopError(`Failed to create shortcut: ${error.message}`);
     }
 }
 
@@ -473,7 +705,26 @@ async function renderDesktopIcons(nodes) {
 
         const glyphEl = document.createElement('div');
         glyphEl.className = 'desktop-icon-glyph';
-        glyphEl.textContent = glyph;
+
+        if (shortcutData?.appId) {
+            const iconPath = getShortcutAppIconPath(shortcutData.appId);
+            if (iconPath) {
+                const img = document.createElement('img');
+                img.className = 'desktop-icon-app-image';
+                img.setAttribute('draggable', 'false');
+                img.src = iconPath;
+                img.alt = `${displayName} icon`;
+                img.onerror = () => {
+                    glyphEl.innerHTML = '';
+                    glyphEl.textContent = '🔗';
+                };
+                glyphEl.appendChild(img);
+            } else {
+                glyphEl.textContent = '🔗';
+            }
+        } else {
+            glyphEl.textContent = glyph;
+        }
 
         const labelEl = document.createElement('span');
         labelEl.className = 'desktop-icon-label';
@@ -852,6 +1103,34 @@ setInterval(function() {
     clockDate.textContent = now.toLocaleDateString('en-US', dateOptions);
 }, 1000);
 
+// Update battery status every minute and on change
+function updateBatteryStatus(battery) {
+    const level = Math.round(battery.level * 100);
+    if (level >= 80) {
+            batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM184,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm-40,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm-40,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
+    } else if (level >= 60) {
+            batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM144,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm-40,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
+        } else if (level >= 40) {
+                batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM104,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
+            } else if (level >= 20) {
+                batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
+                } else {
+            batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M256,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM224,80v96a24,24,0,0,1-24,24H32A24,24,0,0,1,8,176V80A24,24,0,0,1,32,56H200A24,24,0,0,1,224,80Zm-16,0a8,8,0,0,0-8-8H32a8,8,0,0,0-8,8v96a8,8,0,0,0,8,8H200a8,8,0,0,0,8-8Zm-92,52a8,8,0,0,0,8-8V96a8,8,0,0,0-16,0v28A8,8,0,0,0,116,132Zm0,12a12,12,0,1,0,12,12A12,12,0,0,0,116,144Z"></path></svg>'
+    }
+
+    batteryStatus.title = `Battery level: ${level}%`;
+}
+
+if (isBatterySupported) {
+    batteryStatus.classList.remove('hidden');
+    navigator.getBattery().then((battery) => {
+        updateBatteryStatus(battery);
+        battery.addEventListener('levelchange', () => updateBatteryStatus(battery));
+    }).catch((e) => {
+        console.warn('Battery API error:', e);
+    });
+}
+
 // Variables for dragging and resizing
 let activeWindow = null;
 let offsetX = 0;
@@ -1014,6 +1293,9 @@ document.addEventListener('mousedown', (e) => {
     if (e.target.closest('.window') || e.target.closest('.desktop-icon') || e.target.closest('footer')) {
         return;
     }
+
+    // If any icons are currently selected, clear the selection
+    document.querySelectorAll('.desktop-icon').forEach(icon => icon.classList.remove('selected'));
 
     draggingSelectionBox = true;
     selectionBoxDragStarted = false;
@@ -1378,6 +1660,11 @@ function openApp(appId, queryParams = {}) {
     const queryAppend = queryString ? `?${queryString}` : '';
     const instanceId = queryString ? `${appId}-${queryString}` : appId;
 
+    if (appId === 'launcher' && queryParams.app) {
+        openLauncher();
+        return;
+    }
+
     const existingWin = document.querySelector(`.window[data-instance-id="${instanceId}"]`);
     if (existingWin) {
         getWindows().forEach(w => w.style.zIndex = "500");
@@ -1409,6 +1696,12 @@ function openApp(appId, queryParams = {}) {
     win.style.top = `${startTop}px`;
     win.style.zIndex = "1000";
     getWindows().forEach(w => w.style.zIndex = "500");
+
+    // If anywhere on the window is clicked, bring it to the front
+    win.addEventListener('click', () => {
+        getWindows().forEach(w => w.style.zIndex = "1000");
+        win.style.zIndex = "1000";
+    });
     
     // Save these initial dimensions as restore sizes
     win.dataset.restoreWidth = win.style.width;
@@ -1417,7 +1710,6 @@ function openApp(appId, queryParams = {}) {
     win.dataset.restoreTop = win.style.top;
 
     // HTML for resizers and window
-    // This is safe right? Prolly
     let resizersHtml = '';
     if (app.resizable !== false) {
         resizersHtml = `
@@ -1470,6 +1762,53 @@ function openApp(appId, queryParams = {}) {
 
 // Expose openApp for apps starting from within iframes
 window.openApp = openApp;
+
+// Open the launcher
+function openLauncher() {
+    const launcherApp = appsRegistry.find(a => a.id === 'launcher');
+    let iframe = document.getElementById('launcher-iframe');
+
+    if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'launcher-iframe';
+        iframe.src = launcherApp ? launcherApp.path : 'apps/launcher/launcher.html';
+        document.body.appendChild(iframe);
+
+        const closeLauncher = (e) => {
+            const startMenuBtn = document.getElementById('start-menu');
+            if (e && e.target) {
+                if (e.target === iframe || iframe.contains(e.target) || (startMenuBtn && (e.target === startMenuBtn || startMenuBtn.contains(e.target)))) {
+                    return;
+                }
+            }
+            iframe.classList.remove('open');
+        };
+
+        document.addEventListener('mousedown', closeLauncher);
+        window.addEventListener('blur', () => {
+            if (document.activeElement !== iframe) {
+                iframe.classList.remove('open');
+            }
+        });
+
+        window.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'CLOSE_LAUNCHER') {
+                iframe.classList.remove('open');
+            }
+        });
+    }
+
+    if (iframe.classList.contains('open')) {
+        iframe.classList.remove('open');
+    } else {
+        iframe.classList.add('open');
+        // Give the iframe time to render before focusing
+        setTimeout(() => {
+            iframe.contentWindow.postMessage({ type: 'LAUNCHER_OPENED' }, '*');
+            iframe.focus();
+        }, 50);
+    }
+}
 
 // Ensure functionality is attached dynamically to newly created windows
 function initWindow(win) {
@@ -1540,6 +1879,11 @@ document.querySelectorAll('.taskbar-app-icon').forEach(icon => {
     icon.addEventListener('click', () => {
         const appId = icon.id;
 
+        if (appId === 'start-menu') {
+            openLauncher();
+            return;
+        }
+
         if (!appsRegistry.some(app => app.id === appId)) {
             hideMinimizedMenu();
             return;
@@ -1585,7 +1929,91 @@ contextMenu.add('.desktop-icon', (target) => {
 
     return [
         { label: 'Open', action: () => openDesktopNode(nodeId) },
+        { label: 'Open with Text Editor', action: async () => {
+            const node = await db.fs_nodes.get(nodeId);
+            if (node) {
+                const path = await getNodeAbsolutePath(nodeId);
+                openApp('text-editor', { file: path });
+            }
+        } },
         { label: 'Rename', action: () => renameDesktopNode(nodeId) },
         { label: 'Delete', action: () => deleteDesktopNode(nodeId) }
     ];
 });
+
+// Setup keyboard shortcuts for desktop
+let desktopClipboard = { files: [], operation: null };
+const selectedDesktopIcons = new Set();
+
+document.addEventListener('keydown', async (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    const selectedIcon = document.querySelector('.desktop-icon.selected');
+    const selectedNodeId = selectedIcon ? Number(selectedIcon.dataset.nodeId) : null;
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && selectedNodeId) {
+        e.preventDefault();
+        desktopClipboard = { files: [selectedNodeId], operation: 'copy' };
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x' && selectedNodeId) {
+        e.preventDefault();
+        desktopClipboard = { files: [selectedNodeId], operation: 'cut' };
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        if (desktopClipboard.files.length > 0 && desktopDirNode) {
+            const operation = desktopClipboard.operation;
+            for (const fileId of desktopClipboard.files) {
+                const node = await db.fs_nodes.get(fileId);
+                if (node) {
+                    if (operation === 'cut') {
+                        await db.fs_nodes.update(fileId, { parentId: desktopDirNode.id });
+                    } else if (operation === 'copy') {
+
+                    }
+                }
+            }
+            desktopClipboard = { files: [], operation: null };
+            await refreshDesktopIcons(true);
+        }
+    } else if (e.key === 'Delete' && selectedNodeId) {
+        e.preventDefault();
+        await deleteDesktopNode(selectedNodeId);
+    }
+});
+
+// Setup drag and drop for desktop
+function setupDesktopDragAndDrop() {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        container.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        container.addEventListener(eventName, () => {
+            container.style.backgroundColor = 'rgba(43, 101, 42, 0.1)';
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        container.addEventListener(eventName, () => {
+            container.style.backgroundColor = '';
+        }, false);
+    });
+
+    container.addEventListener('drop', async (e) => {
+        if (!desktopDirNode) return;
+        
+        const files = e.dataTransfer.files;
+        for (let file of files) {
+            await writeFile(desktopDirNode.id, file.name, file, file.type || 'application/octet-stream');
+        }
+        await refreshDesktopIcons(true);
+    }, false);
+}
+
+// Initialize drag and drop when desktop is ready
+setTimeout(() => setupDesktopDragAndDrop(), 100);

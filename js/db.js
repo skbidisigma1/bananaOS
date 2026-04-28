@@ -8,6 +8,32 @@ db.version(2).stores({
     fs_data: 'nodeId'
 });
 
+// File system events broadcasting
+const FS_EVENTS_CHANNEL_NAME = 'bananaos-fs-events';
+let fsEventsChannel = null;
+
+function getEventsChannel() {
+    if (!fsEventsChannel) {
+        try {
+            fsEventsChannel = new BroadcastChannel(FS_EVENTS_CHANNEL_NAME);
+        } catch (e) {
+            console.warn('BroadcastChannel not available:', e);
+        }
+    }
+    return fsEventsChannel;
+}
+
+export function emitFsEvent(eventType, data = {}) {
+    const channel = getEventsChannel();
+    if (channel) {
+        channel.postMessage({
+            type: eventType,
+            timestamp: Date.now(),
+            ...data
+        });
+    }
+}
+
 // Check if setup is complete
 export async function isSetupComplete() {
     const entry = await db.config.get('setupComplete');
@@ -34,12 +60,13 @@ export async function writeFile(parentId, name, content, type = 'text/plain') {
         throw new Error(`Invalid characters in filename: ${name}`);
     }
 
-    return await db.transaction('rw', db.fs_nodes, db.fs_data, async () => {
+    const result = await db.transaction('rw', db.fs_nodes, db.fs_data, async () => {
         const existing = await db.fs_nodes.where({ parentId, name }).first();
         if (existing) {
             if (existing.type === 'file') {
                 await db.fs_data.where({ nodeId: existing.id }).modify({ data: content });
                 await db.fs_nodes.update(existing.id, { modified: Date.now(), size: content.size || content.length });
+                emitFsEvent('FILE_MODIFIED', { parentId, fileName: name });
                 return existing.id;
             } else if (existing.type === 'dir') {
                 throw new Error(`Cannot write file. A directory with the name '${name}' already exists.`);
@@ -48,8 +75,11 @@ export async function writeFile(parentId, name, content, type = 'text/plain') {
 
         const id = await db.fs_nodes.add({ parentId, name, type: 'file', mime: type, size: content.size || content.length, modified: Date.now() });
         await db.fs_data.add({ nodeId: id, data: content });
+        emitFsEvent('FILE_CREATED', { parentId, fileName: name, nodeId: id });
         return id;
     });
+    
+    return result;
 }
 
 // Read directory
@@ -85,7 +115,10 @@ export async function mkdir(parentId, name) {
             throw new Error(`Cannot create directory. A file with the name '${name}' already exists.`);
         }
     }
-    return await db.fs_nodes.add({ parentId, name, type: 'dir', modified: Date.now() });
+    
+    const id = await db.fs_nodes.add({ parentId, name, type: 'dir', modified: Date.now() });
+    emitFsEvent('DIR_CREATED', { parentId, dirName: name, nodeId: id });
+    return id;
 }
 
 // Resolve path to a node

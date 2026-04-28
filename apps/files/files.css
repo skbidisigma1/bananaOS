@@ -536,6 +536,13 @@ section#tabs {
     font-weight: 500;
 }
 
+.modal-content p {
+    margin: 0.5rem 0;
+    color: var(--color-subtle-text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+}
+
 .modal-content input {
     background-color: var(--color-card);
     color: var(--color-white);
@@ -551,6 +558,35 @@ section#tabs {
 .modal-content input:focus {
     border-color: var(--color-primary);
     background-color: var(--color-dark-gray);
+}
+
+.modal-content select {
+    background-color: var(--color-card);
+    color: var(--color-white);
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.5rem;
+    font-size: 1rem;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0.5rem 0;
+    appearance: none;
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="white" d="M1 1l5 5 5-5"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    padding-right: 2rem;
+}
+
+.modal-content select:focus {
+    border-color: var(--color-primary);
+    background-color: var(--color-dark-gray);
+}
+
+.modal-content select option {
+    background-color: var(--color-card);
+    color: var(--color-white);
 }
 
 .modal-buttons {
@@ -594,6 +630,10 @@ section#tabs {
 .modal-buttons button.icon-btn svg {
     width: 1.2rem;
     height: 1.2rem;
+}
+
+#alert-modal {
+    z-index: 10000;
 }
 
 #picker-footer {

@@ -1,6 +1,6 @@
 // TODO fix: When navigating to a file path that doesn't exist in the app, it creates that directory instead of telling you it's an invalid path
 
-import { db, readDir, resolvePath, mkdir, writeFile, initFS } from '../../js/db.js';
+import { db, readDir, resolvePath, mkdir, writeFile, initFS, emitFsEvent } from '../../js/db.js';
 import { contextMenu } from '../../js/rightClick.js';
 
 // App state
@@ -466,6 +466,69 @@ function setupEventListeners() {
         alertModal.classList.add('hidden');
     });
 
+    // New Shortcut modal listeners
+    document.getElementById('cancel-new-shortcut').addEventListener('click', () => {
+        document.getElementById('new-shortcut-modal').classList.add('hidden');
+    });
+    
+    document.getElementById('confirm-new-shortcut').addEventListener('click', async () => {
+        const appId = document.getElementById('new-shortcut-app-select').value;
+        if (!appId) {
+            showAlert('Please select an app.');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/data/apps.json');
+            const data = await response.json();
+            const app = data.apps.find(a => a.id === appId);
+            
+            if (!app) {
+                showAlert(`App not found: ${appId}`);
+                return;
+            }
+            
+            const shortcutName = `${app.name}.shortcut`;
+            const children = await readDir(getActiveTab().currentNode);
+            
+            // Generate unique name if needed
+            if (children.some(c => c.name === shortcutName)) {
+                const baseName = shortcutName.replace('.shortcut', '');
+                let attempts = 1;
+                let finalName = shortcutName;
+                while (children.some(c => c.name === `${baseName} (${attempts}).shortcut`)) {
+                    attempts++;
+                }
+                finalName = `${baseName} (${attempts}).shortcut`;
+                
+                const id = await writeFile(
+                    getActiveTab().currentNode,
+                    finalName,
+                    JSON.stringify({ type: 'app-shortcut', appId }, null, 2),
+                    'application/x-bananaos-shortcut+json'
+                );
+                const nodeSnapshot = await db.fs_nodes.get(id);
+                emitFsEvent('FILE_CREATED', { parentId: getActiveTab().currentNode, fileName: finalName });
+                pushHistoryAction({ type: 'create', fileIds: [id], nodesSnapshot: [{...nodeSnapshot}] });
+            } else {
+                const id = await writeFile(
+                    getActiveTab().currentNode,
+                    shortcutName,
+                    JSON.stringify({ type: 'app-shortcut', appId }, null, 2),
+                    'application/x-bananaos-shortcut+json'
+                );
+                const nodeSnapshot = await db.fs_nodes.get(id);
+                emitFsEvent('FILE_CREATED', { parentId: getActiveTab().currentNode, fileName: shortcutName });
+                pushHistoryAction({ type: 'create', fileIds: [id], nodesSnapshot: [{...nodeSnapshot}] });
+            }
+            
+            await renderFileView();
+            document.getElementById('new-shortcut-modal').classList.add('hidden');
+        } catch (err) {
+            showAlert(`Failed to create shortcut: ${err.message}`);
+        }
+    });
+
     fileView.addEventListener('click', (e) => {
         if (e.target === fileView || e.target.classList.contains('empty-state')) {
             document.querySelectorAll('.file-row').forEach(r => r.classList.remove('selected'));
@@ -477,6 +540,65 @@ function setupEventListeners() {
     document.querySelector('#search-menu input').addEventListener('input', applyFilters);
     document.querySelector('#filter-menu select').addEventListener('change', applyFilters);
     document.querySelector('.filter-other input').addEventListener('input', applyFilters);
+
+    // Setup file system event listener for automatic refresh
+    setupFsEventListener();
+
+    // Drag and drop file upload
+    setupDragAndDrop();
+}
+
+function setupDragAndDrop() {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        fileView.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        fileView.addEventListener(eventName, () => {
+            fileView.style.backgroundColor = 'rgba(43, 101, 42, 0.1)';
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        fileView.addEventListener(eventName, () => {
+            fileView.style.backgroundColor = '';
+        }, false);
+    });
+
+    fileView.addEventListener('drop', async (e) => {
+        const files = e.dataTransfer.files;
+        for (let file of files) {
+            const id = await writeFile(getActiveTab().currentNode, file.name, file, file.type || 'application/octet-stream');
+            const snapshot = await db.fs_nodes.get(id);
+            pushHistoryAction({ type: 'create', fileIds: [id], nodesSnapshot: [{ ...snapshot, data: file }] });
+        }
+        await renderFileView();
+    }, false);
+}
+
+function setupFsEventListener() {
+    try {
+        const fsEventsChannel = new BroadcastChannel('bananaos-fs-events');
+        fsEventsChannel.addEventListener('message', async (event) => {
+            // Debounce rapid file system changes (multiple events within 500ms)
+            clearTimeout(window.fsEventDebounceTimeout);
+            window.fsEventDebounceTimeout = setTimeout(async () => {
+                const tab = getActiveTab();
+                if (tab && tab.currentNode) {
+                    // Refresh current view when file system changes
+                    await renderFileView();
+                }
+            }, 300);
+        });
+    } catch (e) {
+        console.warn('BroadcastChannel not available for file system events:', e);
+    }
 }
 
 function applyFilters() {
@@ -599,6 +721,23 @@ function renderNextChunk() {
                     pickerFilename.value = fullPath;
                     pickerSelect.click();
                     return;
+                }
+                
+                // Handle shortcuts
+                if (file.name.endsWith('.shortcut')) {
+                    try {
+                        const nodeData = await db.fs_data.where({ nodeId: file.id }).first();
+                        if (nodeData) {
+                            const shortcutContent = typeof nodeData.data === 'string' ? nodeData.data : await nodeData.data.text();
+                            const shortcutJson = JSON.parse(shortcutContent);
+                            if (shortcutJson.appId && window.parent && window.parent.openApp) {
+                                window.parent.openApp(shortcutJson.appId);
+                                return;
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('Failed to open shortcut:', err);
+                    }
                 }
                 
                 if (window.parent && window.parent.openApp) {
@@ -744,6 +883,38 @@ async function handleNewFile() {
     input.focus();
 }
 
+async function handleNewShortcut() {
+    const modal = document.getElementById('new-shortcut-modal');
+    const select = document.getElementById('new-shortcut-app-select');
+    
+    // Load installed apps
+    try {
+        const response = await fetch('/data/apps.json');
+        const data = await response.json();
+        
+        // Clear existing options except the placeholder
+        const options = select.querySelectorAll('option:not(:first-child)');
+        options.forEach(opt => opt.remove());
+        
+        // Add app options
+        if (data.apps && data.apps.length > 0) {
+            for (const app of data.apps) {
+                const option = document.createElement('option');
+                option.value = app.id;
+                option.textContent = app.name;
+                select.appendChild(option);
+            }
+        }
+    } catch (err) {
+        showAlert(`Failed to load installed apps: ${err.message}`);
+        return;
+    }
+    
+    select.value = '';
+    modal.classList.remove('hidden');
+    select.focus();
+}
+
 function handleCut() {
     if (getActiveTab().selectedFiles.size === 0) return;
     clipboard = { files: Array.from(getActiveTab().selectedFiles), operation: 'cut' };
@@ -884,6 +1055,7 @@ async function handleDelete() {
         const dataObj = await db.fs_data.where({nodeId: fileId}).first();
         if (fileNode) {
             deletedNodes.push({ ...fileNode, data: dataObj ? dataObj.data : null });
+            emitFsEvent('FILE_DELETED', { parentId: fileNode.parentId, fileName: fileNode.name });
         }
         
         await db.fs_nodes.delete(fileId);
@@ -925,6 +1097,8 @@ async function handleUndo() {
     try {
         if (action.type === 'create') {
             for (const id of action.fileIds) {
+                const node = await db.fs_nodes.get(id);
+                emitFsEvent('FILE_DELETED', { parentId: node.parentId, fileName: node.name });
                 await db.fs_nodes.delete(id);
                 await db.fs_data.where({nodeId: id}).delete();
             }
@@ -934,12 +1108,15 @@ async function handleUndo() {
                 if (node.data) {
                     await db.fs_data.put({ nodeId: node.id, data: node.data });
                 }
+                emitFsEvent('FILE_CREATED', { parentId: node.parentId, fileName: node.name });
             }
         } else if (action.type === 'rename') {
             await db.fs_nodes.update(action.fileId, { name: action.oldName });
+            emitFsEvent('FILE_MODIFIED', { fileId: action.fileId });
         } else if (action.type === 'move') {
             for (const move of action.moves) {
                 await db.fs_nodes.update(move.fileId, { parentId: move.oldParent });
+                emitFsEvent('FILE_MOVED', { fileId: move.fileId, oldParent: move.newParent, newParent: move.oldParent });
             }
         }
         tab.redoStack.push(action);
@@ -1230,6 +1407,7 @@ function getFileIcon(file) { // I don't like this system so TODO: add custom svg
     if (['py'].includes(ext)) return '🐍';
     if (['js', 'jsx'].includes(ext)) return 'JS';
     if (['ts', 'tsx'].includes(ext)) return 'TS';
+    if (['shortcut'].includes(ext)) return '🔗';
     return '📄';
 }
 
@@ -1241,6 +1419,7 @@ contextMenu.add('#file-view', (target) => {
     return [
         { label: 'New Folder', action: () => handleNewFolder() },
         { label: 'New File', action: () => handleNewFile() },
+        { label: 'New Shortcut', action: () => handleNewShortcut() },
         { type: 'separator' },
         { label: 'Refresh', action: () => handleRefresh() },
         { label: 'Undo', action: () => handleUndo(), disabled: getActiveTab().undoStack.length === 0 },

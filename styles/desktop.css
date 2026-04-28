@@ -107,10 +107,6 @@ footer {
     background-color: rgba(10, 10, 10, 0.4);
 }
 
-.taskbar-status-icon:active {
-    transform: scale(0.95);
-}
-
 .taskbar-status-icon#clock {
     width: 6rem;
 }
@@ -368,4 +364,27 @@ footer {
     background-color: #229bc750;
     z-index: 1000;
     pointer-events: none;
+}
+
+#launcher-iframe {
+    position: fixed;
+    bottom: calc(4vh + 10px);
+    left: 20px;
+    width: 380px;
+    height: 360px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+    transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+    pointer-events: none;
+    background-color: var(--color-background);
+}
+
+#launcher-iframe.open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
 }

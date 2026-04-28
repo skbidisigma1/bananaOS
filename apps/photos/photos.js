@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('file-new').addEventListener('click', async () => {
         if (hasUnsavedChanges) {
-            const discard = await showModal("You have unsaved changes. Are you sure you want to open a new image and lose them?", "Yes");
+            const discard = await showModal("You may have unsaved changes. Are you sure you want to open a new image and lose them?", "Yes");
             if (!discard) return;
         }
         window.location.href = window.location.pathname;
@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('file-open').addEventListener('click', async () => {
         if (hasUnsavedChanges) {
-            const discard = await showModal("You have unsaved changes. Are you sure you want to open another image and lose them?", "Yes");
+            const discard = await showModal("You may have unsaved changes. Are you sure you want to open another image and lose them?", "Yes");
             if (!discard) return;
         }
         const path = await openFilePicker(currentFilePath);
@@ -296,7 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('file-exit').addEventListener('click', async () => {
         if (hasUnsavedChanges) {
-            const discard = await showModal("You have unsaved changes. Are you sure you want to close and lose them?", "Close without saving");
+            const discard = await showModal("You may have unsaved changes. Are you sure you want to close and lose them?", "Close without saving");
             if (!discard) return;
         }
         if (window.parent) {
