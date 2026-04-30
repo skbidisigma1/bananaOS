@@ -194,8 +194,8 @@ async function saveSettings() {
                 language: navigator.language || 'en-US',
                 region: navigator.language.split('-')[1] || 'US',
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-                accentColor: '#2B652A',
-                wallpaper: 'default.jpg',
+                iconColor: '#FFFFFF',
+                wallpaper: 'wallpaper-1.jpg',
                 wallpaperStyle: 'cover'
             };
             configObj.pfp = pfpBase64;

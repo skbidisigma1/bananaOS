@@ -94,7 +94,6 @@ function customPrompt(message, defaultValue = "", title = "Input Required") {
 
 document.addEventListener('DOMContentLoaded', async () => {
     let currentFilePath = null;
-    let hasUnsavedChanges = false;
 
     const updateWindowContextTitle = () => {
         const contextTitle = currentFilePath
@@ -182,13 +181,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    imageEditor.on('objectActivated', () => { hasUnsavedChanges = true; });
-    imageEditor.on('objectScaled', () => { hasUnsavedChanges = true; });
-    imageEditor.on('objectMoved', () => { hasUnsavedChanges = true; });
-    imageEditor.on('applyFilter', () => { hasUnsavedChanges = true; });
-    imageEditor.on('undoStackChanged', () => { hasUnsavedChanges = true; });
-    imageEditor.on('redoStackChanged', () => { hasUnsavedChanges = true; });
-
     // File Menu logic
     let pickerCallback = null;
     window.addEventListener('message', e => {
@@ -202,27 +194,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         return new Promise(resolve => {
             pickerCallback = resolve;
             if (window.parent && window.parent.openApp) {
-                let path = defaultPath;
-                if (path && typeof path === 'object') path = path.toString();
-                window.parent.openApp('files', { mode: 'picker', defaultPath: path || '' });
+                // For save dialog, pass the folder path, not a specific file path that might not exist
+                let path = '/home/user/Pictures';
+                if (defaultPath && typeof defaultPath === 'string') {
+                    // If defaultPath is a folder, use it; otherwise use its parent folder
+                    if (defaultPath.endsWith('/')) {
+                        path = defaultPath;
+                    } else {
+                        const lastSlash = defaultPath.lastIndexOf('/');
+                        path = lastSlash > 0 ? defaultPath.substring(0, lastSlash) : '/home/user/Pictures';
+                    }
+                }
+                window.parent.openApp('files', { mode: 'picker', defaultPath: path });
             } else {
-                customPrompt("Enter the full path of the file:", defaultPath || "/home/user/Pictures/image.png", "Open File").then(resolve);
+                customPrompt("Enter the full path of the file:", defaultPath || "/home/user/Pictures/image.png", "Save File").then(resolve);
             }
         });
     }
 
     async function saveActiveFileAS() {
-        let defaultPath = currentFilePath || '/home/user/Pictures/newimage.png';
+        let defaultFolder = '/home/user/Pictures';
         if (currentFilePath) {
-            let lastSlash = currentFilePath.lastIndexOf('/');
-            defaultPath = lastSlash === -1 ? '/' : currentFilePath.substring(0, lastSlash) || '/';
+            const lastSlash = currentFilePath.lastIndexOf('/');
+            defaultFolder = lastSlash > 0 ? currentFilePath.substring(0, lastSlash) : '/home/user/Pictures';
         }
-        let path = await openFilePicker(defaultPath);
+        let path = await openFilePicker(defaultFolder);
         if (!path) return;
         
         let lastSlash = path.lastIndexOf('/');
         let folderPath = lastSlash === -1 ? '/' : path.substring(0, lastSlash) || '/';
         let fileName = path.substring(lastSlash + 1);
+
+        // If user selected a folder (no filename), auto-generate one
+        const checkFolderNode = await resolvePath(folderPath);
+        if (checkFolderNode && checkFolderNode.type === 'dir' && (!fileName || fileName.trim() === '')) {
+            fileName = 'NewPicture.png';
+            path = folderPath.endsWith('/') ? folderPath + fileName : folderPath + '/' + fileName;
+        } else if (!fileName || fileName.trim() === '') {
+            // Path is invalid, ask user for a filename
+            fileName = await customPrompt('Enter a filename:', 'NewPicture.png', 'Save Image');
+            if (!fileName || fileName.trim() === '') return;
+            path = folderPath.endsWith('/') ? folderPath + fileName : folderPath + '/' + fileName;
+            folderPath = folderPath.endsWith('/') ? folderPath.slice(0, -1) : folderPath;
+        }
 
         const folderNode = await resolvePath(folderPath);
         if (!folderNode || folderNode.type !== 'dir') {
@@ -243,7 +257,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             await writeFile(folderNode.id, fileName, blob, blob.type || 'image/png');
             
             currentFilePath = path;
-            hasUnsavedChanges = false;
             updateWindowContextTitle();
             window.history.replaceState({}, '', `${window.location.pathname}?image=${encodeURIComponent(path)}`);
         } catch(err) {
@@ -264,8 +277,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const blob = await res.blob();
                 await db.fs_data.where({ nodeId: node.id }).modify({ data: blob });
                 await db.fs_nodes.update(node.id, { modified: Date.now(), size: blob.size });
-                
-                hasUnsavedChanges = false;
             }
         } catch(err) {
             console.error("Failed to save file", err);
@@ -273,18 +284,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     document.getElementById('file-new').addEventListener('click', async () => {
-        if (hasUnsavedChanges) {
-            const discard = await showModal("You may have unsaved changes. Are you sure you want to open a new image and lose them?", "Yes");
-            if (!discard) return;
-        }
         window.location.href = window.location.pathname;
     });
 
     document.getElementById('file-open').addEventListener('click', async () => {
-        if (hasUnsavedChanges) {
-            const discard = await showModal("You may have unsaved changes. Are you sure you want to open another image and lose them?", "Yes");
-            if (!discard) return;
-        }
         const path = await openFilePicker(currentFilePath);
         if (path) {
             window.location.href = `${window.location.pathname}?image=${encodeURIComponent(path)}`;
@@ -295,10 +298,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('file-save-as').addEventListener('click', () => { saveActiveFileAS(); });
 
     document.getElementById('file-exit').addEventListener('click', async () => {
-        if (hasUnsavedChanges) {
-            const discard = await showModal("You may have unsaved changes. Are you sure you want to close and lose them?", "Close without saving");
-            if (!discard) return;
-        }
         if (window.parent) {
             const frames = window.parent.document.querySelectorAll('iframe');
             frames.forEach(f => {
@@ -306,6 +305,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     f.closest('.window').remove();
                 }
             });
+        }
+    });
+
+    // Keyboard shortcuts for saving
+    document.addEventListener('keydown', (e) => {
+        if (e.metaKey || e.ctrlKey) {
+            if (e.key === 's' || e.key === 'S') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    saveActiveFileAS();
+                } else {
+                    saveActiveFile();
+                }
+            }
         }
     });
 

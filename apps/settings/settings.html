@@ -60,8 +60,8 @@
                     <div class="settings-option" data-modal="theme">
                         <p data-i18n="settings.theme">Theme</p>
                     </div>
-                    <div class="settings-option" data-modal="accent-color">
-                        <p data-i18n="settings.accentColor">Accent Color</p>
+                    <div class="settings-option" data-modal="icon-color">
+                        <p data-i18n="settings.iconColor">Icon Color</p>
                     </div>
                     <div class="settings-option" data-modal="wallpaper">
                         <p data-i18n="settings.wallpaper">Wallpaper</p>
@@ -162,10 +162,10 @@
                     </div>
                 </div>
 
-                <div class="modal hidden" id="modal-accent-color">
-                    <div class="modal-header"><h3 data-i18n="settings.accentColor">Accent Color</h3></div>
+                <div class="modal hidden" id="modal-icon-color">
+                    <div class="modal-header"><h3 data-i18n="settings.iconColor">Icon Color</h3></div>
                     <div class="modal-body">
-                        <input type="color" id="config-accent-color" class="settings-color" value="#2B652A">
+                        <input type="color" id="config-icon-color" class="settings-color" value="#FFFFFF">
                     </div>
                     <div class="modal-actions">
                         <button class="btn-cancel" data-i18n="settings.cancel">Cancel</button>
@@ -178,7 +178,7 @@
                     <div class="modal-body" style="gap: 1rem;">
                         <p class="modal-info" data-i18n="settings.info.wallpaper">Select a wallpaper to set as your desktop background.</p>
                         <select id="config-wallpaper" class="settings-select">
-                            <option value="default.jpg" data-i18n="settings.default">Default</option>
+                            <option value="wallpaper-1.jpg" data-i18n="settings.wallpaper.1">Wallpaper 1</option>
                             <option value="custom" data-i18n="settings.custom">Custom...</option>
                         </select>
                         <div id="wallpaper-custom-upload" class="hidden">

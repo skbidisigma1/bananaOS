@@ -67,8 +67,6 @@ export const commands = {
         
         const parentNode = await resolvePath(parentPath, cwd);
         if (!parentNode) {
-            // Because db.js mkdir now intelligently creates nested directories,
-            // we can pass the whole path to cwd node.
             const cwdNode = await resolvePath(cwd);
             if (!cwdNode) return `mkdir: cannot create directory '${path}': Invalid current working directory`;
             

@@ -44,6 +44,12 @@ let desktopWatchTimer = null;
 let desktopRefreshInFlight = false;
 let desktopModalState = null;
 let fsEventsChannel = null;
+let desktopClipboard = { files: [], operation: null };
+const selectedDesktopIcons = new Set();
+let desktopSelectionAnchorIndex = -1;
+let desktopRenderedNodes = [];
+let desktopUndoStack = [];
+let desktopRedoStack = [];
 
 const SHORTCUT_MIME = 'application/x-bananaos-shortcut+json';
 const DESKTOP_LAYOUT_PATH = '/home/user/config/desktop-layout.json';
@@ -255,6 +261,147 @@ function getInstalledAppsForShortcuts() {
 
 function getLayoutKeyForNode(nodeId) {
     return `node:${nodeId}`;
+}
+
+function getDesktopSelectedNodeIds() {
+    return desktopRenderedNodes
+        .filter(node => selectedDesktopIcons.has(node.id))
+        .map(node => node.id);
+}
+
+function syncDesktopSelectionState() {
+    document.querySelectorAll('.desktop-icon').forEach((icon) => {
+        const nodeId = Number(icon.dataset.nodeId);
+        icon.classList.toggle('selected', selectedDesktopIcons.has(nodeId));
+        icon.classList.toggle('cut-item', desktopClipboard.operation === 'cut' && desktopClipboard.files.includes(nodeId));
+    });
+}
+
+function setDesktopSelection(nodeIds, anchorIndex = -1) {
+    selectedDesktopIcons.clear();
+    nodeIds.forEach((nodeId) => selectedDesktopIcons.add(nodeId));
+    desktopSelectionAnchorIndex = anchorIndex;
+    syncDesktopSelectionState();
+}
+
+function clearDesktopSelection() {
+    selectedDesktopIcons.clear();
+    desktopSelectionAnchorIndex = -1;
+    syncDesktopSelectionState();
+}
+
+function setDesktopClipboard(files, operation) {
+    desktopClipboard = { files: Array.from(new Set(files)), operation };
+    syncDesktopSelectionState();
+}
+
+function clearDesktopClipboard() {
+    desktopClipboard = { files: [], operation: null };
+    syncDesktopSelectionState();
+}
+
+function pushDesktopHistory(action) {
+    desktopUndoStack.push(action);
+    if (desktopUndoStack.length > 50) {
+        desktopUndoStack.shift();
+    }
+    desktopRedoStack = [];
+}
+
+function getDesktopCopyName(existingNames, sourceName) {
+    const dotIndex = sourceName.lastIndexOf('.');
+    const hasExtension = dotIndex > 0;
+    const baseName = hasExtension ? sourceName.slice(0, dotIndex) : sourceName;
+    const extension = hasExtension ? sourceName.slice(dotIndex) : '';
+
+    let attempt = 0;
+    let candidate = `${baseName} (copy)${extension}`;
+    while (existingNames.has(candidate)) {
+        attempt++;
+        candidate = `${baseName} (copy) (${attempt})${extension}`;
+    }
+
+    return candidate;
+}
+
+async function snapshotDesktopNodeTree(nodeId) {
+    const node = await db.fs_nodes.get(nodeId);
+    if (!node) return null;
+
+    const dataEntry = await db.fs_data.where({ nodeId }).first();
+    const children = await db.fs_nodes.where({ parentId: nodeId }).toArray();
+    const childSnapshots = [];
+
+    for (const child of children) {
+        const childSnapshot = await snapshotDesktopNodeTree(child.id);
+        if (childSnapshot) {
+            childSnapshots.push(childSnapshot);
+        }
+    }
+
+    return {
+        node: { ...node },
+        data: dataEntry ? dataEntry.data : null,
+        children: childSnapshots,
+        layoutPosition: desktopLayout.positions[getLayoutKeyForNode(nodeId)] || null
+    };
+}
+
+async function restoreDesktopNodeTree(snapshot, parentId = null) {
+    if (!snapshot) return;
+
+    const restoredNode = { ...snapshot.node };
+    if (parentId !== null) {
+        restoredNode.parentId = parentId;
+    }
+
+    await db.fs_nodes.put(restoredNode);
+    if (snapshot.data !== null && snapshot.data !== undefined) {
+        await db.fs_data.put({ nodeId: restoredNode.id, data: snapshot.data });
+    }
+
+    if (snapshot.layoutPosition) {
+        desktopLayout.positions[getLayoutKeyForNode(restoredNode.id)] = { ...snapshot.layoutPosition };
+    }
+
+    for (const child of snapshot.children || []) {
+        await restoreDesktopNodeTree(child, child.node.parentId);
+    }
+}
+
+async function deleteDesktopNodeTree(nodeId) {
+    const children = await db.fs_nodes.where({ parentId: nodeId }).toArray();
+    for (const child of children) {
+        await deleteDesktopNodeTree(child.id);
+    }
+
+    const node = await db.fs_nodes.get(nodeId);
+    if (!node) return;
+
+    emitFsEvent('FILE_DELETED', { parentId: node.parentId, fileName: node.name });
+    await db.fs_data.where({ nodeId }).delete();
+    await db.fs_nodes.delete(nodeId);
+}
+
+async function copyDesktopNodeRecursive(sourceId, targetParentId, isRoot = false) {
+    const sourceNode = await db.fs_nodes.get(sourceId);
+    if (!sourceNode) return null;
+
+    const siblingEntries = await readDir(targetParentId);
+    const siblingNames = new Set(siblingEntries.map(entry => entry.name));
+    const desiredName = isRoot ? getDesktopCopyName(siblingNames, sourceNode.name) : sourceNode.name;
+
+    if (sourceNode.type === 'dir') {
+        const newDirId = await mkdir(targetParentId, desiredName);
+        const children = await readDir(sourceId);
+        for (const child of children) {
+            await copyDesktopNodeRecursive(child.id, newDirId, false);
+        }
+        return newDirId;
+    }
+
+    const dataEntry = await db.fs_data.where({ nodeId: sourceId }).first();
+    return await writeFile(targetParentId, desiredName, dataEntry?.data || '', sourceNode.mime);
 }
 
 function isShortcutFileName(name) {
@@ -522,42 +669,68 @@ async function renameDesktopNode(nodeId) {
             return;
         }
 
+        const previousName = node.name;
         await db.fs_nodes.update(node.id, { name: trimmed, modified: Date.now() });
+        emitFsEvent('FILE_MODIFIED', { fileId: node.id });
+        pushDesktopHistory({ type: 'rename', fileId: node.id, oldName: previousName, newName: trimmed });
         await refreshDesktopIcons(true);
     } catch (error) {
         await showDesktopError(`Failed to rename item: ${error.message}`);
     }
 }
 
-async function deleteNodeRecursive(nodeId) {
-    const children = await db.fs_nodes.where({ parentId: nodeId }).toArray();
-    for (const child of children) {
-        await deleteNodeRecursive(child.id);
-    }
-
-    const node = await db.fs_nodes.get(nodeId);
-    emitFsEvent('FILE_DELETED', { parentId: node.parentId, fileName: node.name });
-    await db.fs_data.where({ nodeId }).delete();
-    await db.fs_nodes.delete(nodeId);
-}
-
-async function deleteDesktopNode(nodeId) {
+async function deleteDesktopNode(nodeId = null) {
     try {
-        const node = await db.fs_nodes.get(nodeId);
-        if (!node) return;
+        const selectedNodeIds = nodeId !== null && !selectedDesktopIcons.has(nodeId)
+            ? [nodeId]
+            : getDesktopSelectedNodeIds();
 
-        const displayName = node.type === 'dir' ? node.name : stripShortcutSuffix(node.name);
+        if (selectedNodeIds.length === 0) return;
+
+        const nodeSnapshots = [];
+        const protectedNames = new Set(['Downloads', 'Desktop', 'Pictures', 'Videos', 'Documents']);
+        let protectedNodeName = null;
+
+        for (const selectedNodeId of selectedNodeIds) {
+            const node = await db.fs_nodes.get(selectedNodeId);
+            if (!node) continue;
+
+            if (node.parentId === desktopDirNode?.id && node.type === 'dir' && protectedNames.has(node.name)) {
+                protectedNodeName = node.name;
+                continue;
+            }
+
+            const snapshot = await snapshotDesktopNodeTree(node.id);
+            if (snapshot) {
+                nodeSnapshots.push(snapshot);
+            }
+        }
+
+        if (protectedNodeName) {
+            await showDesktopError(`Cannot delete protected system directory: ${protectedNodeName}`);
+        }
+
+        if (nodeSnapshots.length === 0) return;
+
+        const displayName = nodeSnapshots.length === 1
+            ? (nodeSnapshots[0].node.type === 'dir' ? nodeSnapshots[0].node.name : stripShortcutSuffix(nodeSnapshots[0].node.name))
+            : `${nodeSnapshots.length} items`;
         const confirmed = await openDesktopModal({
-            title: 'Delete Item',
-            message: `Delete '${displayName}'?`,
+            title: nodeSnapshots.length === 1 ? 'Delete Item' : 'Delete Items',
+            message: nodeSnapshots.length === 1 ? `Delete '${displayName}'?` : `Delete ${displayName}?`,
             confirmText: 'Delete',
             cancelText: 'Cancel',
             showCancel: true
         });
         if (confirmed !== true) return;
 
-        await deleteNodeRecursive(node.id);
-        delete desktopLayout.positions[getLayoutKeyForNode(node.id)];
+        for (const snapshot of nodeSnapshots) {
+            await deleteDesktopNodeTree(snapshot.node.id);
+            delete desktopLayout.positions[getLayoutKeyForNode(snapshot.node.id)];
+        }
+
+        pushDesktopHistory({ type: 'delete', trees: nodeSnapshots });
+        clearDesktopSelection();
         await saveDesktopLayout();
         await refreshDesktopIcons(true);
     } catch (error) {
@@ -589,8 +762,13 @@ async function createDesktopFile() {
         const finalName = buildUniqueName(existingNames, trimmed);
         if (!finalName) return;
 
-        await writeFile(desktopDirNode.id, finalName, '', 'text/plain');
+        const newFileId = await writeFile(desktopDirNode.id, finalName, '', 'text/plain');
+        emitFsEvent('FILE_CREATED', { parentId: desktopDirNode.id, fileName: finalName });
         await refreshDesktopIcons(true);
+        const snapshot = await snapshotDesktopNodeTree(newFileId);
+        if (snapshot) {
+            pushDesktopHistory({ type: 'create', trees: [snapshot] });
+        }
     } catch (error) {
         await showDesktopError(`Failed to create file: ${error.message}`);
     }
@@ -620,8 +798,13 @@ async function createDesktopFolder() {
         const finalName = buildUniqueName(existingNames, trimmed);
         if (!finalName) return;
 
-        await mkdir(desktopDirNode.id, finalName);
+        const newFolderId = await mkdir(desktopDirNode.id, finalName);
+        emitFsEvent('FILE_CREATED', { parentId: desktopDirNode.id, fileName: finalName });
         await refreshDesktopIcons(true);
+        const snapshot = await snapshotDesktopNodeTree(newFolderId);
+        if (snapshot) {
+            pushDesktopHistory({ type: 'create', trees: [snapshot] });
+        }
     } catch (error) {
         await showDesktopError(`Failed to create folder: ${error.message}`);
     }
@@ -661,16 +844,173 @@ async function createDesktopShortcut() {
         const finalName = buildUniqueName(existingNames, requestedName);
         if (!finalName) return;
 
-        await writeFile(
+        const newShortcutId = await writeFile(
             desktopDirNode.id,
             finalName,
             JSON.stringify({ type: 'app-shortcut', appId: app.id }, null, 2),
             SHORTCUT_MIME
         );
 
+        emitFsEvent('FILE_CREATED', { parentId: desktopDirNode.id, fileName: finalName });
         await refreshDesktopIcons(true);
+        const snapshot = await snapshotDesktopNodeTree(newShortcutId);
+        if (snapshot) {
+            pushDesktopHistory({ type: 'create', trees: [snapshot] });
+        }
     } catch (error) {
         await showDesktopError(`Failed to create shortcut: ${error.message}`);
+    }
+}
+
+function handleCut() {
+    const selectedNodeIds = getDesktopSelectedNodeIds();
+    if (selectedNodeIds.length === 0) return;
+
+    setDesktopClipboard(selectedNodeIds, 'cut');
+}
+
+function handleCopy() {
+    const selectedNodeIds = getDesktopSelectedNodeIds();
+    if (selectedNodeIds.length === 0) return;
+
+    setDesktopClipboard(selectedNodeIds, 'copy');
+}
+
+async function handleDuplicate() {
+    if (!desktopDirNode) return;
+
+    const selectedNodeIds = getDesktopSelectedNodeIds();
+    if (selectedNodeIds.length === 0) return;
+
+    const createdSnapshots = [];
+    for (const nodeId of selectedNodeIds) {
+        const newNodeId = await copyDesktopNodeRecursive(nodeId, desktopDirNode.id, true);
+        const snapshot = await snapshotDesktopNodeTree(newNodeId);
+        if (snapshot) {
+            createdSnapshots.push(snapshot);
+        }
+    }
+
+    if (createdSnapshots.length === 0) return;
+
+    pushDesktopHistory({ type: 'create', trees: createdSnapshots });
+    await refreshDesktopIcons(true);
+}
+
+async function handlePaste() {
+    if (!desktopDirNode || desktopClipboard.files.length === 0) return;
+
+    const createdSnapshots = [];
+    const movedEntries = [];
+
+    if (desktopClipboard.operation === 'cut') {
+        for (const fileId of desktopClipboard.files) {
+            const node = await db.fs_nodes.get(fileId);
+            if (!node || node.parentId === desktopDirNode.id) {
+                continue;
+            }
+
+            await db.fs_nodes.update(fileId, { parentId: desktopDirNode.id, modified: Date.now() });
+            emitFsEvent('FILE_MOVED', { fileId, oldParent: node.parentId, newParent: desktopDirNode.id });
+            movedEntries.push({ fileId, oldParent: node.parentId, newParent: desktopDirNode.id });
+        }
+
+        if (movedEntries.length > 0) {
+            pushDesktopHistory({ type: 'move', moves: movedEntries });
+        }
+        clearDesktopClipboard();
+    } else if (desktopClipboard.operation === 'copy') {
+        for (const fileId of desktopClipboard.files) {
+            const newNodeId = await copyDesktopNodeRecursive(fileId, desktopDirNode.id, true);
+            const snapshot = await snapshotDesktopNodeTree(newNodeId);
+            if (snapshot) {
+                createdSnapshots.push(snapshot);
+            }
+        }
+
+        if (createdSnapshots.length > 0) {
+            pushDesktopHistory({ type: 'create', trees: createdSnapshots });
+        }
+    }
+
+    await refreshDesktopIcons(true);
+}
+
+async function handleUndo() {
+    const action = desktopUndoStack.pop();
+    if (!action) return;
+
+    try {
+        if (action.type === 'create') {
+            for (const tree of action.trees || []) {
+                await deleteDesktopNodeTree(tree.node.id);
+                delete desktopLayout.positions[getLayoutKeyForNode(tree.node.id)];
+            }
+            await saveDesktopLayout();
+        } else if (action.type === 'delete') {
+            for (const tree of action.trees || []) {
+                await restoreDesktopNodeTree(tree);
+                if (tree.layoutPosition) {
+                    desktopLayout.positions[getLayoutKeyForNode(tree.node.id)] = tree.layoutPosition;
+                }
+            }
+            await saveDesktopLayout();
+        } else if (action.type === 'rename') {
+            await db.fs_nodes.update(action.fileId, { name: action.oldName, modified: Date.now() });
+            emitFsEvent('FILE_MODIFIED', { fileId: action.fileId });
+        } else if (action.type === 'move') {
+            for (const move of action.moves || []) {
+                await db.fs_nodes.update(move.fileId, { parentId: move.oldParent, modified: Date.now() });
+                emitFsEvent('FILE_MOVED', { fileId: move.fileId, oldParent: move.newParent, newParent: move.oldParent });
+            }
+        }
+
+        desktopRedoStack.push(action);
+        if (desktopRedoStack.length > 50) {
+            desktopRedoStack.shift();
+        }
+        await refreshDesktopIcons(true);
+    } catch (error) {
+        await showDesktopError(`Undo failed: ${error.message}`);
+    }
+}
+
+async function handleRedo() {
+    const action = desktopRedoStack.pop();
+    if (!action) return;
+
+    try {
+        if (action.type === 'create') {
+            for (const tree of action.trees || []) {
+                await restoreDesktopNodeTree(tree);
+                if (tree.layoutPosition) {
+                    desktopLayout.positions[getLayoutKeyForNode(tree.node.id)] = tree.layoutPosition;
+                }
+            }
+            await saveDesktopLayout();
+        } else if (action.type === 'delete') {
+            for (const tree of action.trees || []) {
+                await deleteDesktopNodeTree(tree.node.id);
+                delete desktopLayout.positions[getLayoutKeyForNode(tree.node.id)];
+            }
+            await saveDesktopLayout();
+        } else if (action.type === 'rename') {
+            await db.fs_nodes.update(action.fileId, { name: action.newName, modified: Date.now() });
+            emitFsEvent('FILE_MODIFIED', { fileId: action.fileId });
+        } else if (action.type === 'move') {
+            for (const move of action.moves || []) {
+                await db.fs_nodes.update(move.fileId, { parentId: move.newParent, modified: Date.now() });
+                emitFsEvent('FILE_MOVED', { fileId: move.fileId, oldParent: move.oldParent, newParent: move.newParent });
+            }
+        }
+
+        desktopUndoStack.push(action);
+        if (desktopUndoStack.length > 50) {
+            desktopUndoStack.shift();
+        }
+        await refreshDesktopIcons(true);
+    } catch (error) {
+        await showDesktopError(`Redo failed: ${error.message}`);
     }
 }
 
@@ -687,6 +1027,24 @@ async function renderDesktopIcons(nodes) {
         if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
         return a.name.localeCompare(b.name);
     });
+    desktopRenderedNodes = sortedNodes;
+
+    for (const node of sortedNodes) {
+        if (!selectedDesktopIcons.has(node.id)) continue;
+    }
+
+    for (const nodeId of Array.from(selectedDesktopIcons)) {
+        if (!sortedNodes.some(node => node.id === nodeId)) {
+            selectedDesktopIcons.delete(nodeId);
+        }
+    }
+
+    if (selectedDesktopIcons.size > 0 && desktopSelectionAnchorIndex === -1) {
+        const firstSelectedIndex = sortedNodes.findIndex(node => selectedDesktopIcons.has(node.id));
+        if (firstSelectedIndex !== -1) {
+            desktopSelectionAnchorIndex = firstSelectedIndex;
+        }
+    }
 
     for (let index = 0; index < sortedNodes.length; index++) {
         const node = sortedNodes[index];
@@ -702,6 +1060,8 @@ async function renderDesktopIcons(nodes) {
             icon.dataset.shortcutAppId = shortcutData.appId;
         }
         icon.title = displayName;
+        icon.classList.toggle('selected', selectedDesktopIcons.has(node.id));
+        icon.classList.toggle('cut-item', desktopClipboard.operation === 'cut' && desktopClipboard.files.includes(node.id));
 
         const glyphEl = document.createElement('div');
         glyphEl.className = 'desktop-icon-glyph';
@@ -709,16 +1069,65 @@ async function renderDesktopIcons(nodes) {
         if (shortcutData?.appId) {
             const iconPath = getShortcutAppIconPath(shortcutData.appId);
             if (iconPath) {
-                const img = document.createElement('img');
-                img.className = 'desktop-icon-app-image';
-                img.setAttribute('draggable', 'false');
-                img.src = iconPath;
-                img.alt = `${displayName} icon`;
-                img.onerror = () => {
-                    glyphEl.innerHTML = '';
-                    glyphEl.textContent = '🔗';
-                };
-                glyphEl.appendChild(img);
+                // If the icon is an SVG, inline it so we can recolor via CSS (fill: currentColor).
+                if (/\.svg(\?|$)/i.test(iconPath)) {
+                    try {
+                        const resp = await fetch(iconPath);
+                        if (resp.ok) {
+                            const svgText = await resp.text();
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'icon-color-wrapper';
+                            wrapper.innerHTML = svgText;
+                            // Ensure the svg uses currentColor for fill
+                            const svgEl = wrapper.querySelector('svg');
+                            if (svgEl) {
+                                svgEl.classList.add('desktop-icon-app-svg');
+                                svgEl.setAttribute('role', 'img');
+                                svgEl.setAttribute('aria-label', `${displayName} icon`);
+                                svgEl.style.width = '100%';
+                                svgEl.style.height = '100%';
+                                svgEl.style.display = 'block';
+                                svgEl.setAttribute('fill', svgEl.getAttribute('fill') || 'currentColor');
+                            }
+                            glyphEl.appendChild(wrapper);
+                        } else {
+                            // fallback to img
+                            const img = document.createElement('img');
+                            img.className = 'desktop-icon-app-image';
+                            img.setAttribute('draggable', 'false');
+                            img.src = iconPath;
+                            img.alt = `${displayName} icon`;
+                            img.onerror = () => {
+                                glyphEl.innerHTML = '';
+                                glyphEl.textContent = '🔗';
+                            };
+                            glyphEl.appendChild(img);
+                        }
+                    } catch (err) {
+                        const img = document.createElement('img');
+                        img.className = 'desktop-icon-app-image';
+                        img.setAttribute('draggable', 'false');
+                        img.src = iconPath;
+                        img.alt = `${displayName} icon`;
+                        img.onerror = () => {
+                            glyphEl.innerHTML = '';
+                            glyphEl.textContent = '🔗';
+                        };
+                        glyphEl.appendChild(img);
+                    }
+                } else {
+                    // Non-SVG raster image: do not recolor, use <img>
+                    const img = document.createElement('img');
+                    img.className = 'desktop-icon-app-image';
+                    img.setAttribute('draggable', 'false');
+                    img.src = iconPath;
+                    img.alt = `${displayName} icon`;
+                    img.onerror = () => {
+                        glyphEl.innerHTML = '';
+                        glyphEl.textContent = '🔗';
+                    };
+                    glyphEl.appendChild(img);
+                }
             } else {
                 glyphEl.textContent = '🔗';
             }
@@ -733,6 +1142,41 @@ async function renderDesktopIcons(nodes) {
         icon.appendChild(glyphEl);
         icon.appendChild(labelEl);
         desktopGrid.appendChild(icon);
+
+        icon.addEventListener('click', (e) => {
+            if (e.button !== 0) return;
+            e.stopPropagation();
+
+            const clickedNodeId = node.id;
+            const clickedIndex = index;
+            const clickedSelected = selectedDesktopIcons.has(clickedNodeId);
+
+            if (e.shiftKey && desktopSelectionAnchorIndex !== -1) {
+                const start = Math.min(desktopSelectionAnchorIndex, clickedIndex);
+                const end = Math.max(desktopSelectionAnchorIndex, clickedIndex);
+
+                if (!e.ctrlKey && !e.metaKey) {
+                    selectedDesktopIcons.clear();
+                }
+
+                for (let i = start; i <= end; i++) {
+                    selectedDesktopIcons.add(sortedNodes[i].id);
+                }
+            } else if (e.ctrlKey || e.metaKey) {
+                if (clickedSelected) {
+                    selectedDesktopIcons.delete(clickedNodeId);
+                } else {
+                    selectedDesktopIcons.add(clickedNodeId);
+                }
+                desktopSelectionAnchorIndex = clickedIndex;
+            } else {
+                selectedDesktopIcons.clear();
+                selectedDesktopIcons.add(clickedNodeId);
+                desktopSelectionAnchorIndex = clickedIndex;
+            }
+
+            syncDesktopSelectionState();
+        });
 
         const layoutPos = desktopLayout.positions[getLayoutKeyForNode(node.id)];
         let chosenPosition = null;
@@ -811,8 +1255,34 @@ async function initializeDesktop() {
     if (!desktopDirNode) return;
 
     await loadDesktopLayout();
+    
+    // Create default shortcuts on first initialization if Desktop is empty
+    const existingFiles = await readDir(desktopDirNode.id);
+    if (existingFiles.length === 0) {
+        await createDefaultShortcuts();
+        // Open Welcome app to greet the user
+        openApp('welcome');
+    }
+    
     await refreshDesktopIcons(true);
     startDesktopWatcher();
+}
+
+async function createDefaultShortcuts() {
+    if (!desktopDirNode) return;
+    
+    // Get all installed apps except Welcome
+    const appsToCreate = appsRegistry.filter(app => app.id !== 'welcome');
+    
+    for (const app of appsToCreate) {
+        try {
+            const shortcutName = `${app.name}.shortcut`;
+            const shortcutContent = JSON.stringify({ type: 'app-shortcut', appId: app.id }, null, 2);
+            await writeFile(desktopDirNode.id, shortcutName, shortcutContent, SHORTCUT_MIME);
+        } catch (error) {
+            console.warn(`Failed to create shortcut for ${app.id}:`, error);
+        }
+    }
 }
 
 function getTaskbarIcon(appId) {
@@ -1066,8 +1536,8 @@ async function applyUserPreferences() {
         window.updateWallpaper(wallpaper, wallpaperStyle);
 
         // Apply visual preferences
-        if (config?.accentColor) {
-            document.documentElement.style.setProperty('--color-primary', config.accentColor);
+        if (config?.iconColor || config?.accentColor) {
+            document.documentElement.style.setProperty('--color-icon', config.iconColor || config.accentColor);
         }
         if (config?.theme) {
             document.body.className = config?.theme === 'dark' ? 'dark-theme' : config?.theme === 'light' ? 'light-theme' : '';
@@ -1107,15 +1577,15 @@ setInterval(function() {
 function updateBatteryStatus(battery) {
     const level = Math.round(battery.level * 100);
     if (level >= 80) {
-            batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM184,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm-40,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm-40,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
+            batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM184,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm-40,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm-40,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
     } else if (level >= 60) {
-            batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM144,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm-40,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
+            batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM144,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm-40,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
         } else if (level >= 40) {
-                batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM104,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
+                batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM104,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
             } else if (level >= 20) {
-                batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
+                batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 256 256"><path d="M200,56H32A24,24,0,0,0,8,80v96a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V80A24,24,0,0,0,200,56Zm8,120a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H200a8,8,0,0,1,8,8ZM64,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Zm192,0v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0Z"></path></svg>'
                 } else {
-            batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#FFFFFF" viewBox="0 0 256 256"><path d="M256,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM224,80v96a24,24,0,0,1-24,24H32A24,24,0,0,1,8,176V80A24,24,0,0,1,32,56H200A24,24,0,0,1,224,80Zm-16,0a8,8,0,0,0-8-8H32a8,8,0,0,0-8,8v96a8,8,0,0,0,8,8H200a8,8,0,0,0,8-8Zm-92,52a8,8,0,0,0,8-8V96a8,8,0,0,0-16,0v28A8,8,0,0,0,116,132Zm0,12a12,12,0,1,0,12,12A12,12,0,0,0,116,144Z"></path></svg>'
+            batteryStatus.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 256 256"><path d="M256,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM224,80v96a24,24,0,0,1-24,24H32A24,24,0,0,1,8,176V80A24,24,0,0,1,32,56H200A24,24,0,0,1,224,80Zm-16,0a8,8,0,0,0-8-8H32a8,8,0,0,0-8,8v96a8,8,0,0,0,8,8H200a8,8,0,0,0,8-8Zm-92,52a8,8,0,0,0,8-8V96a8,8,0,0,0-16,0v28A8,8,0,0,0,116,132Zm0,12a12,12,0,1,0,12,12A12,12,0,0,0,116,144Z"></path></svg>'
     }
 
     batteryStatus.title = `Battery level: ${level}%`;
@@ -1174,6 +1644,17 @@ document.addEventListener('mousedown', (e) => {
 
     const icon = e.target.closest('.desktop-icon');
     if (!icon) return;
+
+    const nodeId = Number(icon.dataset.nodeId);
+    const nodeIndex = desktopRenderedNodes.findIndex(node => node.id === nodeId);
+    const hasModifier = e.ctrlKey || e.metaKey || e.shiftKey;
+
+    if (!icon.classList.contains('selected') && !hasModifier && Number.isFinite(nodeId)) {
+        selectedDesktopIcons.clear();
+        selectedDesktopIcons.add(nodeId);
+        desktopSelectionAnchorIndex = nodeIndex;
+        syncDesktopSelectionState();
+    }
 
     e.stopPropagation();
     potentialDragIcon = icon;
@@ -1275,14 +1756,8 @@ document.addEventListener('click', (e) => {
         return;
     }
 
-    // If clicking after a desktop icon is selected, remove the "selected" state from all icons
-    if (e.target.closest('.desktop-icon')) {
-        document.querySelectorAll('.desktop-icon').forEach(icon => icon.classList.remove('selected'));
-        e.target.closest('.desktop-icon').classList.add('selected');
-    } else {
-        if (!draggingSelectionBox) {
-            document.querySelectorAll('.desktop-icon').forEach(icon => icon.classList.remove('selected'));
-        }
+    if (!e.target.closest('.desktop-icon') && !e.target.closest('.window') && !e.target.closest('footer') && !draggingSelectionBox) {
+        clearDesktopSelection();
     }
 });
 
@@ -1328,6 +1803,7 @@ document.addEventListener('mousedown', (e) => {
         document.removeEventListener('mouseup', handleMouseUp);
 
         if (selectionBox) {
+            const nextSelection = [];
             document.querySelectorAll('.desktop-icon').forEach(icon => {
                 const iconRect = icon.getBoundingClientRect();
                 const boxRect = selectionBox.getBoundingClientRect();
@@ -1338,9 +1814,19 @@ document.addEventListener('mousedown', (e) => {
                     iconRect.top < boxRect.bottom &&
                     iconRect.bottom > boxRect.top
                 ) {
-                    icon.classList.add('selected');
+                    const nodeId = Number(icon.dataset.nodeId);
+                    if (Number.isFinite(nodeId)) {
+                        nextSelection.push(nodeId);
+                    }
                 }
             });
+
+            selectedDesktopIcons.clear();
+            nextSelection.forEach(nodeId => selectedDesktopIcons.add(nodeId));
+            desktopSelectionAnchorIndex = nextSelection.length > 0
+                ? desktopRenderedNodes.findIndex(node => node.id === nextSelection[0])
+                : -1;
+            syncDesktopSelectionState();
 
             container.removeChild(selectionBox);
             selectionBox = null;
@@ -1367,6 +1853,7 @@ getWindows().forEach(win => {
 
     // Bring window to front when clicked
     win.onmousedown = () => {
+        getWindows().forEach(w => w.style.zIndex = "500");
         win.style.zIndex = "1000";
     }
 
@@ -1694,12 +2181,12 @@ function openApp(appId, queryParams = {}) {
     win.style.height = `${startHeight}px`;
     win.style.left = `${startLeft}px`;
     win.style.top = `${startTop}px`;
-    win.style.zIndex = "1000";
-    getWindows().forEach(w => w.style.zIndex = "500");
 
     // If anywhere on the window is clicked, bring it to the front
-    win.addEventListener('click', () => {
-        getWindows().forEach(w => w.style.zIndex = "1000");
+    win.addEventListener('mousedown', (e) => {
+        // Clicking on the iframe's interior will not trigger this in the parent,
+        // but ensure we bring this window forward when header/resizers or window chrome are used.
+        getWindows().forEach(w => w.style.zIndex = "500");
         win.style.zIndex = "1000";
     });
     
@@ -1815,7 +2302,10 @@ function initWindow(win) {
     const header = win.querySelector('.window-header');
     if (!header) return;
 
-    win.onmousedown = () => { win.style.zIndex = "1000"; }
+    win.onmousedown = () => {
+        getWindows().forEach(w => w.style.zIndex = '500');
+        win.style.zIndex = '1000';
+    };
 
     header.onmousedown = (e) => {
         activeWindow = win;
@@ -1824,56 +2314,92 @@ function initWindow(win) {
         dragStartX = e.clientX;
         dragStartY = e.clientY;
         isResizing = false;
-        getWindows().forEach(w => w.style.zIndex = "500");
-        win.style.zIndex = "1000";
+
+        getWindows().forEach(w => w.style.zIndex = '500');
+        win.style.zIndex = '1000';
         document.querySelectorAll('.window-content iframe').forEach(iframe => iframe.style.pointerEvents = 'none');
-    }
+    };
 
     const resizers = win.querySelectorAll('.resizer');
-    resizers.forEach(resizer => {
-        resizer.addEventListener('mousedown', function(e) {
+    resizers.forEach((resizer) => {
+        resizer.addEventListener('mousedown', (e) => {
             e.preventDefault();
             isResizing = true;
             currentResizer = resizer;
             activeWindow = win;
-            getWindows().forEach(w => w.style.zIndex = "500");
-            win.style.zIndex = "1000";
+            getWindows().forEach(w => w.style.zIndex = '500');
+            win.style.zIndex = '1000';
             document.querySelectorAll('.window-content iframe').forEach(iframe => iframe.style.pointerEvents = 'none');
         });
     });
 
-    const fullscreenBtn = header.querySelector('.window-operations').querySelector('.window-fullscreen');
+    const fullscreenBtn = header.querySelector('.window-operations .window-fullscreen');
     const toggleMax = () => {
-        const containerRect = document.getElementById('window-container').getBoundingClientRect();
+        const windowContainerRect = document.getElementById('window-container').getBoundingClientRect();
         const windowRect = win.getBoundingClientRect();
-        if (windowRect.width >= containerRect.width && windowRect.height >= containerRect.height) {
+        if (windowRect.width >= windowContainerRect.width && windowRect.height >= windowContainerRect.height) {
             restoreWindowSizes(win);
         } else {
             saveWindowSizes(win);
-            win.style.width = `${containerRect.width}px`;
-            win.style.height = `${containerRect.height}px`;
-            win.style.top = `0px`;
-            win.style.left = `0px`;
+            win.style.width = `${windowContainerRect.width}px`;
+            win.style.height = `${windowContainerRect.height}px`;
+            win.style.top = '0px';
+            win.style.left = '0px';
         }
     };
 
     header.addEventListener('dblclick', toggleMax);
     if (fullscreenBtn) fullscreenBtn.addEventListener('click', toggleMax);
 
-    const minimizeBtn = header.querySelector('.window-operations > .window-minimize');
+    const minimizeBtn = header.querySelector('.window-operations .window-minimize');
     if (minimizeBtn) {
-        minimizeBtn.addEventListener('click', () => {
-            setWindowMinimized(win, true);
+        minimizeBtn.addEventListener('click', () => setWindowMinimized(win, true));
+    }
+
+    const closeBtn = win.querySelector('.window-operations .window-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', async () => {
+            // Check if the window has an iframe with an app that might have unsaved changes
+            const iframe = win.querySelector('.window-content iframe');
+            if (iframe && iframe.contentWindow) {
+                // Send a REQUEST_CLOSE message and wait for response
+                let closeAllowed = true;
+                let responseReceived = false;
+
+                const messageHandler = (e) => {
+                    if (e.data && e.data.type === 'CLOSE_RESPONSE') {
+                        responseReceived = true;
+                        closeAllowed = e.data.allowed === true;
+                    }
+                };
+
+                window.addEventListener('message', messageHandler, { once: true });
+
+                // Send REQUEST_CLOSE to the iframe
+                iframe.contentWindow.postMessage({ type: 'REQUEST_CLOSE' }, '*');
+
+                // Wait up to 500ms for a response
+                await new Promise(resolve => {
+                    setTimeout(() => {
+                        window.removeEventListener('message', messageHandler);
+                        resolve();
+                    }, 500);
+                });
+
+                // If response was received and close is not allowed, don't close
+                if (responseReceived && !closeAllowed) {
+                    return;
+                }
+            }
+
+            closeWindow(win);
         });
     }
 
-    const closeBtn = win.querySelector('.window-operations').querySelector('.window-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => closeWindow(win));
-
-    const closeButtons = win.querySelectorAll('[data-action="close"]');
-    closeButtons.forEach(btn => btn.addEventListener('click', () => closeWindow(win)));
+    win.querySelectorAll('[data-action="close"]').forEach(btn => {
+        btn.addEventListener('click', () => closeWindow(win));
+    });
 }
-
 
 document.querySelectorAll('.taskbar-app-icon').forEach(icon => {
     icon.addEventListener('click', () => {
@@ -1919,6 +2445,10 @@ contextMenu.add('#window-container', (target, e) => {
         { label: 'New Folder', action: () => createDesktopFolder() },
         { label: 'New Shortcut', action: () => createDesktopShortcut() },
         { type: 'separator' },
+        { label: 'Paste', action: () => handlePaste(), disabled: desktopClipboard.files.length === 0 },
+        { label: 'Undo', action: () => handleUndo(), disabled: desktopUndoStack.length === 0 },
+        { label: 'Redo', action: () => handleRedo(), disabled: desktopRedoStack.length === 0 },
+        { type: 'separator' },
         { label: 'Appearance Settings', action: () => openDisplaySettings() }
     ];
 });
@@ -1927,56 +2457,79 @@ contextMenu.add('.desktop-icon', (target) => {
     const nodeId = Number(target.dataset.nodeId);
     if (!Number.isFinite(nodeId)) return [];
 
+    if (!selectedDesktopIcons.has(nodeId) || selectedDesktopIcons.size === 0) {
+        selectedDesktopIcons.clear();
+        selectedDesktopIcons.add(nodeId);
+        desktopSelectionAnchorIndex = desktopRenderedNodes.findIndex(node => node.id === nodeId);
+        syncDesktopSelectionState();
+    }
+
+    const selectedNodeIds = getDesktopSelectedNodeIds();
+    const canOpen = selectedNodeIds.length === 1;
+    const canRename = selectedNodeIds.length === 1;
+
     return [
-        { label: 'Open', action: () => openDesktopNode(nodeId) },
+        { label: 'Open', action: () => openDesktopNode(selectedNodeIds[0]), disabled: !canOpen },
         { label: 'Open with Text Editor', action: async () => {
-            const node = await db.fs_nodes.get(nodeId);
+            const selectedId = selectedNodeIds[0];
+            const node = await db.fs_nodes.get(selectedId);
             if (node) {
-                const path = await getNodeAbsolutePath(nodeId);
+                const path = await getNodeAbsolutePath(selectedId);
                 openApp('text-editor', { file: path });
             }
-        } },
-        { label: 'Rename', action: () => renameDesktopNode(nodeId) },
-        { label: 'Delete', action: () => deleteDesktopNode(nodeId) }
+        }, disabled: !canOpen },
+        { type: 'separator' },
+        { label: 'Cut', action: () => handleCut() },
+        { label: 'Copy', action: () => handleCopy() },
+        { label: 'Paste', action: () => handlePaste(), disabled: desktopClipboard.files.length === 0 },
+        { label: 'Duplicate', action: () => handleDuplicate(), disabled: selectedNodeIds.length === 0 },
+        { type: 'separator' },
+        { label: 'Rename', action: () => renameDesktopNode(selectedNodeIds[0]), disabled: !canRename },
+        { label: 'Delete', action: () => deleteDesktopNode() }
     ];
 });
 
 // Setup keyboard shortcuts for desktop
-let desktopClipboard = { files: [], operation: null };
-const selectedDesktopIcons = new Set();
-
 document.addEventListener('keydown', async (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    
-    const selectedIcon = document.querySelector('.desktop-icon.selected');
-    const selectedNodeId = selectedIcon ? Number(selectedIcon.dataset.nodeId) : null;
 
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && selectedNodeId) {
+    const selectedNodeIds = getDesktopSelectedNodeIds();
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        desktopClipboard = { files: [selectedNodeId], operation: 'copy' };
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x' && selectedNodeId) {
+        setDesktopSelection(desktopRenderedNodes.map(node => node.id), 0);
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && selectedNodeIds.length > 0) {
         e.preventDefault();
-        desktopClipboard = { files: [selectedNodeId], operation: 'cut' };
+        setDesktopClipboard(selectedNodeIds, 'copy');
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x' && selectedNodeIds.length > 0) {
+        e.preventDefault();
+        setDesktopClipboard(selectedNodeIds, 'cut');
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
         e.preventDefault();
         if (desktopClipboard.files.length > 0 && desktopDirNode) {
-            const operation = desktopClipboard.operation;
-            for (const fileId of desktopClipboard.files) {
-                const node = await db.fs_nodes.get(fileId);
-                if (node) {
-                    if (operation === 'cut') {
-                        await db.fs_nodes.update(fileId, { parentId: desktopDirNode.id });
-                    } else if (operation === 'copy') {
-
-                    }
-                }
-            }
-            desktopClipboard = { files: [], operation: null };
-            await refreshDesktopIcons(true);
+            await handlePaste();
         }
-    } else if (e.key === 'Delete' && selectedNodeId) {
+    } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        await deleteDesktopNode(selectedNodeId);
+        await handleRedo();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        await handleRedo();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        await handleUndo();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && selectedNodeIds.length > 0) {
+        e.preventDefault();
+        await handleDuplicate();
+    } else if (e.key === 'Delete' && selectedNodeIds.length > 0) {
+        e.preventDefault();
+        await deleteDesktopNode();
+    } else if (e.key === 'F2' && selectedNodeIds.length === 1) {
+        e.preventDefault();
+        await renameDesktopNode(selectedNodeIds[0]);
+    } else if (e.key === 'Enter' && selectedNodeIds.length === 1) {
+        e.preventDefault();
+        await openDesktopNode(selectedNodeIds[0]);
     }
 });
 

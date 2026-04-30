@@ -8,7 +8,7 @@
   "settings.region": "区域",
   "settings.timezone": "时区",
   "settings.theme": "主题",
-  "settings.accentColor": "强调颜色",
+  "settings.iconColor": "Icon Color",
   "settings.wallpaper": "壁纸",
   "settings.installedApps": "已安装应用",
   "settings.cancel": "取消",

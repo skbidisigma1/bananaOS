@@ -8,7 +8,7 @@
   "settings.region": "ภูมิภาค",
   "settings.timezone": "โซนเวลา",
   "settings.theme": "ธีม",
-  "settings.accentColor": "เน้นสี",
+  "settings.iconColor": "Icon Color",
   "settings.wallpaper": "รูปพื้นหลัง",
   "settings.installedApps": "แอปที่ติดตั้ง",
   "settings.cancel": "ยกเลิก",

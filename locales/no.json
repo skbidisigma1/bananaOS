@@ -8,7 +8,7 @@
   "settings.region": "Region",
   "settings.timezone": "Tidssone",
   "settings.theme": "Tema",
-  "settings.accentColor": "Kontrastfarge",
+  "settings.iconColor": "Icon Color",
   "settings.wallpaper": "Bakgrunnsbilde",
   "settings.installedApps": "Installerte Apper",
   "settings.cancel": "Avbryt",

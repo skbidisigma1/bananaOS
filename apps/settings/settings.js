@@ -39,7 +39,7 @@ class SettingsApp {
             region: document.getElementById('config-region'),
             timezone: document.getElementById('config-timezone'),
             theme: document.getElementById('config-theme'),
-            accentColor: document.getElementById('config-accent-color'),
+            iconColor: document.getElementById('config-icon-color'),
             wallpaper: document.getElementById('config-wallpaper'),
             customWallpaper: document.getElementById('config-custom-wallpaper')
         };
@@ -153,7 +153,7 @@ class SettingsApp {
         
         try {
             // Read from vite glob or hardcode default list if not bundled correctly
-            const presets = ['wallpaper-1.jpg', 'wallpaper-2.jpg', 'wallpaper-3.jpg', 'default.jpg']; 
+            const presets = ['wallpaper-1.jpg'];
             
             // Add known or auto-detected wallpapers
             presets.forEach(filename => {
@@ -192,7 +192,7 @@ class SettingsApp {
             language: navigator.language || 'en-US',
             region: defaultRegion,
             timezone: defaultTz,
-            accentColor: '#2B652A',
+            iconColor: '#FFFFFF',
             wallpaper: 'wallpaper-1.jpg'
         };
 
@@ -207,6 +207,10 @@ class SettingsApp {
                     try {
                         const parsed = JSON.parse(fileData.data);
                         this.config = { ...defaultConfig, ...parsed };
+                        if (!this.config.iconColor && this.config.accentColor) {
+                            this.config.iconColor = this.config.accentColor;
+                        }
+                        delete this.config.accentColor;
                     } catch (parseError) {
                         console.warn('Invalid options.json detected. Resetting to fallback defaults.', parseError);
                         this.config = { ...defaultConfig };
@@ -232,7 +236,7 @@ class SettingsApp {
         }
         if (this.config.timezone && this.inputs.timezone) this.inputs.timezone.value = this.config.timezone;
         if (this.config.theme && this.inputs.theme) this.inputs.theme.value = this.config.theme;
-        if (this.config.accentColor && this.inputs.accentColor) this.inputs.accentColor.value = this.config.accentColor;
+        if (this.config.iconColor && this.inputs.iconColor) this.inputs.iconColor.value = this.config.iconColor;
         
         if (this.config.wallpaper && this.inputs.wallpaper) {
             if (this.config.wallpaper.startsWith('fs:')) {
@@ -314,11 +318,12 @@ class SettingsApp {
                     : this.inputs.theme.value === 'light' ? 'light-theme' : '';
             }
         }
-        if (settingKey === 'accent-color') {
-            this.config.accentColor = this.inputs.accentColor.value;
+        if (settingKey === 'icon-color') {
+            this.config.iconColor = this.inputs.iconColor.value;
+            delete this.config.accentColor;
             if (window.parent && window.parent.document) {
-                // Apply accent color immediately
-                window.parent.document.documentElement.style.setProperty('--color-primary', this.config.accentColor);
+                // Apply icon color immediately
+                window.parent.document.documentElement.style.setProperty('--color-icon', this.config.iconColor);
             }
         }
         

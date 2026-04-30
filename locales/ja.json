@@ -8,7 +8,7 @@
   "settings.region": "地域",
   "settings.timezone": "時間帯",
   "settings.theme": "テーマ",
-  "settings.accentColor": "アクセント色",
+  "settings.iconColor": "Icon Color",
   "settings.wallpaper": "壁紙",
   "settings.installedApps": "インストールされているアプリ",
   "settings.cancel": "取り消す",

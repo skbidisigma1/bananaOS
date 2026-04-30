@@ -8,7 +8,7 @@
   "settings.region": "지역",
   "settings.timezone": "시간대",
   "settings.theme": "테마",
-  "settings.accentColor": "강조색상",
+  "settings.iconColor": "Icon Color",
   "settings.wallpaper": "배경화면",
   "settings.installedApps": "설치된 앱",
   "settings.cancel": "취소",

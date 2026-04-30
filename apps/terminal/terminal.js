@@ -57,7 +57,7 @@ input.addEventListener('keydown', async (e) => {
 });
 
 // Focus input whenever terminal is clicked
-terminalContainer.addEventListener('click', () => {
+document.querySelector('.window-content').addEventListener('click', () => {
     // Only focus if user isn't actively selecting text
     if (!window.getSelection().toString()) {
         input.focus();

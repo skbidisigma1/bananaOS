@@ -8,7 +8,7 @@
   "settings.region": "Регион",
   "settings.timezone": "Часовой пояс",
   "settings.theme": "Тема",
-  "settings.accentColor": "Цветовой акцент",
+  "settings.iconColor": "Icon Color",
   "settings.wallpaper": "Обои",
   "settings.installedApps": "Установленные Приложения",
   "settings.cancel": "Отмена",

@@ -8,7 +8,7 @@
   "settings.region": "Maakunta",
   "settings.timezone": "Aikavyöhyke",
   "settings.theme": "Teema",
-  "settings.accentColor": "Korostuväri",
+  "settings.iconColor": "Icon Color",
   "settings.wallpaper": "Näytön taustakuva",
   "settings.installedApps": "Asennetut sovellukset",
   "settings.cancel": "Peruuta",
